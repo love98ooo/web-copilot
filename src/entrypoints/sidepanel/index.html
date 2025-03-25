@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="zh">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>AI 网页助手</title>
+    <!-- 配置侧边栏在安装时自动打开 -->
+    <meta name="manifest.open_at_install" content="true" />
+    <!-- 配置侧边栏图标 -->
+    <meta
+      name="manifest.default_icon"
+      content="{
+        16: 'icons/icon.svg',
+        32: 'icons/icon.svg',
+        48: 'icons/icon.svg',
+        128: 'icons/icon.svg'
+      }"
+    />
+  </head>
+  <body class="bg-gray-50">
+    <div id="app"></div>
+    <script type="module" src="./main.tsx"></script>
+  </body>
+</html>

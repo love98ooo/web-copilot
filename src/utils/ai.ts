@@ -1,0 +1,138 @@
+import OpenAI from 'openai';
+import { getAIConfig } from './storage';
+
+export interface ChatMessage {
+  role: 'user' | 'assistant';
+  content: string;
+}
+
+export interface Message {
+  id: string;
+  content: string;
+  isUser: boolean;
+  pending?: boolean;
+}
+
+export interface AIError {
+  message: string;
+  code?: string;
+  type?: string;
+}
+
+export class AIService {
+  private static instance: AIService;
+  private messageHistory: ChatMessage[] = [];
+  private openai: OpenAI | null = null;
+
+  private constructor() {}
+
+  public static getInstance(): AIService {
+    if (!AIService.instance) {
+      AIService.instance = new AIService();
+    }
+    return AIService.instance;
+  }
+
+  private async initializeOpenAI(): Promise<OpenAI> {
+    if (this.openai) return this.openai;
+
+    const config = await getAIConfig();
+    if (!config.apiKey) {
+      throw new Error('API Key 未配置。请在扩展设置中设置你的 OpenAI API Key。');
+    }
+
+    this.openai = new OpenAI({
+      apiKey: config.apiKey,
+      baseURL: config.baseUrl,
+      dangerouslyAllowBrowser: true
+    });
+
+    return this.openai;
+  }
+
+  public async listModels(): Promise<string[]> {
+    try {
+      const openai = await this.initializeOpenAI();
+      const response = await openai.models.list();
+      
+      // 过滤出 GPT 模型
+      const gptModels = response.data
+        .filter(model => model.id.includes('gpt'))
+        .map(model => model.id)
+        .sort();
+      
+      return gptModels;
+    } catch (error: any) {
+      console.error('获取模型列表失败:', error);
+      throw this.formatError(error);
+    }
+  }
+
+  private formatError(error: any): AIError {
+    if (error.response?.data?.error) {
+      const apiError = error.response.data.error;
+      return {
+        message: `API 错误: ${apiError.message}`,
+        code: apiError.code,
+        type: apiError.type
+      };
+    }
+    
+    if (error.message?.includes('API Key')) {
+      return {
+        message: 'API Key 未配置或无效。请在扩展设置中设置正确的 API Key。',
+        type: 'auth_error'
+      };
+    }
+
+    if (error.message?.includes('ECONNREFUSED') || error.message?.includes('ETIMEDOUT')) {
+      return {
+        message: '连接服务器失败。请检查你的网络连接或代理设置。',
+        type: 'connection_error'
+      };
+    }
+
+    return {
+      message: `发生错误: ${error.message || '未知错误'}`,
+      type: 'unknown_error'
+    };
+  }
+
+  public async sendMessage(message: string): Promise<string> {
+    try {
+      const openai = await this.initializeOpenAI();
+      const config = await getAIConfig();
+      
+      this.messageHistory.push({
+        role: 'user',
+        content: message
+      });
+
+      const completion = await openai.chat.completions.create({
+        messages: this.messageHistory,
+        model: config.model,
+      });
+
+      const aiResponse = completion.choices[0]?.message?.content;
+      
+      if (aiResponse) {
+        this.messageHistory.push({
+          role: 'assistant',
+          content: aiResponse
+        });
+        return aiResponse;
+      }
+
+      throw new Error('AI 没有返回任何内容');
+    } catch (error: any) {
+      console.error('AI Service Error:', error);
+      throw this.formatError(error);
+    }
+  }
+
+  public clearHistory(): void {
+    this.messageHistory = [];
+  }
+}
+
+export const aiService = AIService.getInstance();
