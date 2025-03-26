@@ -1,4 +1,7 @@
 import React, { useEffect, useState } from 'react';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { getAIConfig, updateAIConfig, resetAIConfig } from '@/utils/storage';
 import { aiService } from '@/utils/ai';
 import type { AIError } from '@/utils/ai';
@@ -6,7 +9,7 @@ import type { AIError } from '@/utils/ai';
 export const SettingsPage: React.FC = () => {
   const [apiKey, setApiKey] = useState('');
   const [baseUrl, setBaseUrl] = useState('');
-  const [model, setModel] = useState('');
+  const [model, setModel] = useState('gpt-4o');
   const [models, setModels] = useState<string[]>([]);
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -16,9 +19,7 @@ export const SettingsPage: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    if (apiKey) {
-      loadModels();
-    }
+    loadModels();
   }, [apiKey]);
 
   const loadConfig = async () => {
@@ -26,7 +27,7 @@ export const SettingsPage: React.FC = () => {
       const config = await getAIConfig();
       setApiKey(config.apiKey || '');
       setBaseUrl(config.baseUrl || '');
-      setModel(config.model || '');
+      setModel(config.model || 'gpt-4o');
     } catch (error) {
       console.error('加载配置失败:', error);
       setStatus('error');
@@ -38,6 +39,7 @@ export const SettingsPage: React.FC = () => {
     try {
       const modelList = await aiService.listModels();
       setModels(modelList);
+      setModel(modelList[0] || 'gpt-4o');
     } catch (error) {
       const aiError = error as AIError;
       console.error('加载模型列表失败:', aiError);
@@ -52,7 +54,7 @@ export const SettingsPage: React.FC = () => {
       await updateAIConfig({
         apiKey,
         baseUrl: baseUrl.trim() || undefined,
-        model: model || 'gpt-3.5-turbo'
+        model: model
       });
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
@@ -84,19 +86,18 @@ export const SettingsPage: React.FC = () => {
     <div className="min-h-screen bg-gray-50 py-8">
       <div className="max-w-2xl mx-auto bg-white rounded-lg shadow p-6">
         <h1 className="text-2xl font-bold mb-6">AI 网页助手设置</h1>
-        
+
         <div className="space-y-6">
           {/* API Key 设置 */}
           <div>
             <label htmlFor="apiKey" className="block text-sm font-medium text-gray-700 mb-1">
               OpenAI API Key
             </label>
-            <input
+            <Input
               type="password"
               id="apiKey"
               value={apiKey}
               onChange={(e) => setApiKey(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="sk-..."
             />
           </div>
@@ -106,12 +107,11 @@ export const SettingsPage: React.FC = () => {
             <label htmlFor="baseUrl" className="block text-sm font-medium text-gray-700 mb-1">
               API Base URL（可选）
             </label>
-            <input
+            <Input
               type="text"
               id="baseUrl"
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               placeholder="https://api.openai.com/v1"
             />
             <p className="mt-1 text-sm text-gray-500">
@@ -124,21 +124,18 @@ export const SettingsPage: React.FC = () => {
             <label htmlFor="model" className="block text-sm font-medium text-gray-700 mb-1">
               AI 模型
             </label>
-            <select
-              id="model"
-              value={model}
-              onChange={(e) => setModel(e.target.value)}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            >
-              <option value="gpt-3.5-turbo">GPT-3.5 Turbo（默认）</option>
-              {models.map((modelId) => (
-                modelId !== 'gpt-3.5-turbo' && (
-                  <option key={modelId} value={modelId}>
+            <Select value={model} onValueChange={setModel}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="选择 AI 模型" />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((modelId) => (
+                  <SelectItem key={modelId} value={modelId}>
                     {modelId}
-                  </option>
-                )
-              ))}
-            </select>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             <p className="mt-1 text-sm text-gray-500">
               选择要使用的 AI 模型。不同模型的能力和价格不同。
             </p>
@@ -154,23 +151,23 @@ export const SettingsPage: React.FC = () => {
 
           {/* 按钮组 */}
           <div className="flex space-x-4">
-            <button
+            <Button
               onClick={handleSave}
               disabled={status === 'saving'}
-              className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 disabled:opacity-50"
+              variant="default"
             >
               {status === 'saving' ? '保存中...' : '保存设置'}
-            </button>
-            <button
+            </Button>
+            <Button
               onClick={handleReset}
               disabled={status === 'saving'}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-md hover:bg-gray-300 focus:outline-none focus:ring-2 focus:ring-gray-500 focus:ring-offset-2 disabled:opacity-50"
+              variant="outline"
             >
               重置设置
-            </button>
+            </Button>
           </div>
         </div>
       </div>
     </div>
   );
-}; 
+};

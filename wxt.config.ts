@@ -9,14 +9,14 @@ export default defineConfig({
     permissions: [
       'storage',
       'sidePanel',
+      'tabs'
     ],
     host_permissions: ["<all_urls>"],
     chrome_url_overrides: {
       newtab: 'newtab.html'
     },
-    options_ui: {
-      page: 'options/index.html',
-      open_in_tab: true
+    background: {
+      service_worker: 'background.ts'
     }
     // icons: {
     //   16: 'public/icons/icon-16.png',

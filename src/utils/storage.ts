@@ -27,6 +27,7 @@ export async function getAIConfig(): Promise<AIConfig> {
 
 // 辅助函数：更新配置
 export async function updateAIConfig(config: Partial<AIConfig>): Promise<void> {
+  console.debug('updateAIConfig', config);
   const currentConfig = await getAIConfig();
   await aiConfig.setValue({
     ...currentConfig,
@@ -42,4 +43,4 @@ export async function resetAIConfig(): Promise<void> {
 // 监听配置变化
 export function watchAIConfig(callback: (newConfig: AIConfig, oldConfig: AIConfig | null) => void) {
   return aiConfig.watch(callback);
-} 
+}

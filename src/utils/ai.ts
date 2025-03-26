@@ -37,9 +37,6 @@ export class AIService {
     if (this.openai) return this.openai;
 
     const config = await getAIConfig();
-    if (!config.apiKey) {
-      throw new Error('API Key 未配置。请在扩展设置中设置你的 OpenAI API Key。');
-    }
 
     this.openai = new OpenAI({
       apiKey: config.apiKey,
@@ -54,13 +51,12 @@ export class AIService {
     try {
       const openai = await this.initializeOpenAI();
       const response = await openai.models.list();
-      
+
       // 过滤出 GPT 模型
       const gptModels = response.data
-        .filter(model => model.id.includes('gpt'))
         .map(model => model.id)
         .sort();
-      
+
       return gptModels;
     } catch (error: any) {
       console.error('获取模型列表失败:', error);
@@ -77,7 +73,7 @@ export class AIService {
         type: apiError.type
       };
     }
-    
+
     if (error.message?.includes('API Key')) {
       return {
         message: 'API Key 未配置或无效。请在扩展设置中设置正确的 API Key。',
@@ -102,19 +98,23 @@ export class AIService {
     try {
       const openai = await this.initializeOpenAI();
       const config = await getAIConfig();
-      
+
       this.messageHistory.push({
         role: 'user',
         content: message
       });
 
       const completion = await openai.chat.completions.create({
-        messages: this.messageHistory,
+        messages: [{ role: 'user', content: message }],
         model: config.model,
+        stream: false,
+        max_tokens: 64,
+        temperature: 0.9,
       });
 
+      console.debug(completion);
       const aiResponse = completion.choices[0]?.message?.content;
-      
+
       if (aiResponse) {
         this.messageHistory.push({
           role: 'assistant',

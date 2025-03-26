@@ -1,7 +1,12 @@
 import React, { useState, KeyboardEvent, ChangeEvent, useEffect } from 'react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
 import { useAI } from '../hooks/useAI';
 import type { Message } from '../utils/ai';
 import { getAIConfig, updateAIConfig } from '../utils/storage';
+import { SelectIcon } from '@radix-ui/react-select';
+import { Settings } from 'lucide-react';
 
 const AIChatSidebar: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
@@ -63,6 +68,7 @@ const AIChatSidebar: React.FC = () => {
       setMessages(prev => [...prev, pendingMessage]);
 
       const aiResponse = await sendAIMessage(inputValue);
+      console.debug('aiResponse', aiResponse);
 
       // 替换待处理消息为实际回复
       setMessages(prev => prev.filter(msg => !msg.pending).concat({
@@ -82,8 +88,7 @@ const AIChatSidebar: React.FC = () => {
     }
   };
 
-  const handleModelChange = async (e: ChangeEvent<HTMLSelectElement>) => {
-    const newModel = e.target.value;
+  const handleModelChange = async (newModel: string) => {
     setModel(newModel);
     try {
       await updateAIConfig({ model: newModel });
@@ -97,29 +102,6 @@ const AIChatSidebar: React.FC = () => {
       {/* 头部 */}
       <div className="p-4 border-b border-gray-200">
         <h1 className="text-xl font-bold mb-2">AI 网页助手</h1>
-        <div className="flex items-center gap-2">
-          <select
-            value={model}
-            onChange={handleModelChange}
-            className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-          >
-            <option value="gpt-3.5-turbo">GPT-3.5 Turbo（默认）</option>
-            {models.map((modelId) => (
-              modelId !== 'gpt-3.5-turbo' && (
-                <option key={modelId} value={modelId}>
-                  {modelId}
-                </option>
-              )
-            ))}
-          </select>
-          <a
-            href="newtab.html"
-            target="_blank"
-            className="text-sm text-blue-500 hover:text-blue-600"
-          >
-            设置
-          </a>
-        </div>
       </div>
 
       {/* 消息列表 */}
@@ -141,24 +123,57 @@ const AIChatSidebar: React.FC = () => {
       </div>
 
       {/* 输入区域 */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-4 border-t border-gray-200 space-y-2">
+        {/* 工具栏 */}
+        <div className="flex items-center gap-2 justify-between">
+          <div className="w-40">
+            <Select value={model} onValueChange={handleModelChange}>
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="选择模型" />
+              </SelectTrigger>
+              <SelectContent>
+                {models.map((modelId) => (
+                  <SelectItem key={modelId} value={modelId}>
+                    {modelId}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          <Button
+            variant="ghost"
+            size="icon"
+            asChild
+            className="h-9 w-9"
+          >
+            <a
+              href="newtab.html"
+              target="_blank"
+              title="设置"
+            >
+              <Settings className="h-4 w-4" />
+            </a>
+          </Button>
+        </div>
+
+        {/* 输入框和发送按钮 */}
         <div className="flex gap-2">
-          <input
+          <Input
             type="text"
             value={inputValue}
             onChange={handleInputChange}
-            onKeyPress={handleKeyPress}
-            placeholder="输入你的问题..."
+            onKeyUpCapture={handleKeyPress}
+            placeholder="问任何问题，@ 模型，/ 提示"
             disabled={isLoading}
-            className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+            className="flex-1"
           />
-          <button
+          <Button
             onClick={handleSendMessage}
             disabled={isLoading || !inputValue.trim()}
-            className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            variant="default"
           >
             {isLoading ? '发送中...' : '发送'}
-          </button>
+          </Button>
         </div>
       </div>
     </div>

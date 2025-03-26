@@ -1,7 +1,7 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
 import AIChatSidebar from '@/components/AIChatSidebar';
-import '@/assets/tailwind.css';
+import '@/index.css';
 
 // 获取根元素
 const root = document.getElementById('app');
