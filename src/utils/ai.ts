@@ -1,5 +1,5 @@
 import OpenAI from 'openai';
-import { getAIConfig } from './storage';
+import type { ProviderConfig } from './storage';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -22,7 +22,7 @@ export interface AIError {
 export class AIService {
   private static instance: AIService;
   private messageHistory: ChatMessage[] = [];
-  private openai: OpenAI | null = null;
+  private openaiClients: Map<string, OpenAI> = new Map();
 
   private constructor() {}
 
@@ -33,23 +33,29 @@ export class AIService {
     return AIService.instance;
   }
 
-  private async initializeOpenAI(): Promise<OpenAI> {
-    if (this.openai) return this.openai;
-
-    const config = await getAIConfig();
-
-    this.openai = new OpenAI({
-      apiKey: config.apiKey,
-      baseURL: config.baseUrl,
-      dangerouslyAllowBrowser: true
-    });
-
-    return this.openai;
+  private getClientKey(provider: ProviderConfig): string {
+    return `${provider.apiKey}:${provider.baseUrl}`;
   }
 
-  public async listModels(): Promise<string[]> {
+  private getOpenAIClient(provider: ProviderConfig): OpenAI {
+    const clientKey = this.getClientKey(provider);
+    let client = this.openaiClients.get(clientKey);
+
+    if (!client) {
+      client = new OpenAI({
+        apiKey: provider.apiKey,
+        baseURL: provider.baseUrl,
+        dangerouslyAllowBrowser: true
+      });
+      this.openaiClients.set(clientKey, client);
+    }
+
+    return client;
+  }
+
+  public async listModels(provider: ProviderConfig): Promise<string[]> {
     try {
-      const openai = await this.initializeOpenAI();
+      const openai = this.getOpenAIClient(provider);
       const response = await openai.models.list();
 
       // 过滤出 GPT 模型
@@ -94,10 +100,9 @@ export class AIService {
     };
   }
 
-  public async sendMessage(message: string): Promise<string> {
+  public async sendMessage(message: string, provider: ProviderConfig): Promise<string> {
     try {
-      const openai = await this.initializeOpenAI();
-      const config = await getAIConfig();
+      const openai = this.getOpenAIClient(provider);
 
       this.messageHistory.push({
         role: 'user',
@@ -106,7 +111,7 @@ export class AIService {
 
       const completion = await openai.chat.completions.create({
         messages: [{ role: 'user', content: message }],
-        model: config.model,
+        model: provider.model,
         stream: false,
         max_tokens: 64,
         temperature: 0.9,

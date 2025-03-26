@@ -1,46 +1,98 @@
 import React, { useState, KeyboardEvent, ChangeEvent, useEffect } from 'react';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Input } from '@/components/ui/input';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
+import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useAI } from '../hooks/useAI';
 import type { Message } from '../utils/ai';
-import { getAIConfig, updateAIConfig } from '../utils/storage';
-import { SelectIcon } from '@radix-ui/react-select';
-import { Settings } from 'lucide-react';
+import { getAIConfig, watchAIConfig, updateSelectedProvider } from '../utils/storage';
+import type { ProviderConfig, SelectedProviderState } from '../utils/storage';
+import { Settings, Send } from 'lucide-react';
+
+interface ProviderModels {
+  [key: string]: string[];  // key 是 provider 的 apiKey
+}
 
 const AIChatSidebar: React.FC = () => {
   const [messages, setMessages] = useState<Message[]>([]);
   const [inputValue, setInputValue] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
-  const [model, setModel] = useState<string>('gpt-4o');
-  const { sendMessage: sendAIMessage, listModels } = useAI();
-  const [models, setModels] = useState<string[]>([]);
+  const [providers, setProviders] = useState<ProviderConfig[]>([]);
+  const [providerModels, setProviderModels] = useState<ProviderModels>({});
+  const [selectedProvider, setSelectedProvider] = useState<SelectedProviderState>({
+    providerIndex: 0,
+    model: 'gpt-3.5-turbo'
+  });
+  const { sendMessage: sendAIMessage } = useAI();
 
   useEffect(() => {
     loadConfig();
+    // 监听配置变化
+    const unwatch = watchAIConfig((newConfig) => {
+      setProviders(newConfig.providers);
+      // 如果当前选中的 provider 被删除，自动选择第一个
+      if (selectedProvider.providerIndex >= newConfig.providers.length) {
+        const newSelectedProvider = {
+          providerIndex: 0,
+          model: 'gpt-3.5-turbo'
+        };
+        setSelectedProvider(newSelectedProvider);
+        updateSelectedProvider(newSelectedProvider);
+      }
+    });
+
+    return () => unwatch();
   }, []);
+
+  useEffect(() => {
+    // 当 provider 的配置变化时，加载对应的模型列表
+    providers.forEach((provider, index) => {
+      if (provider.apiKey && (!providerModels[provider.apiKey] || providerModels[provider.apiKey].length === 0)) {
+        loadModels(provider);
+      }
+    });
+  }, [providers]);
 
   const loadConfig = async () => {
     try {
       const config = await getAIConfig();
-      if (config.apiKey) {
-        setModel(config.model);
-        const modelList = await listModels();
-        setModels(modelList);
-      }
+      setProviders(config.providers);
+      setSelectedProvider(config.selectedProvider);
     } catch (error) {
       console.error('加载配置失败:', error);
     }
   };
 
-  const handleInputChange = (e: ChangeEvent<HTMLInputElement>): void => {
+  const loadModels = async (provider: ProviderConfig) => {
+    try {
+      const modelList = await aiService.listModels(provider);
+      setProviderModels(prev => ({
+        ...prev,
+        [provider.apiKey]: modelList
+      }));
+    } catch (error) {
+      console.error('加载模型列表失败:', error);
+    }
+  };
+
+  const handleInputChange = (e: ChangeEvent<HTMLTextAreaElement>): void => {
     setInputValue(e.target.value);
   };
 
-  const handleKeyPress = (e: KeyboardEvent<HTMLInputElement>): void => {
-    if (e.key === 'Enter' && inputValue.trim() && !isLoading) {
+  const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
+    if (e.key === 'Enter' && !e.shiftKey && inputValue.trim() && !isLoading) {
+      e.preventDefault(); // 防止换行
       handleSendMessage();
     }
+  };
+
+  const handleProviderModelChange = async (value: string) => {
+    const [providerIndex, model] = value.split(':');
+    const newSelectedProvider = {
+      providerIndex: parseInt(providerIndex),
+      model
+    };
+    setSelectedProvider(newSelectedProvider);
+    await updateSelectedProvider(newSelectedProvider);
   };
 
   const handleSendMessage = async (): Promise<void> => {
@@ -67,7 +119,11 @@ const AIChatSidebar: React.FC = () => {
       };
       setMessages(prev => [...prev, pendingMessage]);
 
-      const aiResponse = await sendAIMessage(inputValue);
+      const provider = providers[selectedProvider.providerIndex];
+      const aiResponse = await sendAIMessage(inputValue, {
+        ...provider,
+        model: selectedProvider.model
+      });
       console.debug('aiResponse', aiResponse);
 
       // 替换待处理消息为实际回复
@@ -88,13 +144,8 @@ const AIChatSidebar: React.FC = () => {
     }
   };
 
-  const handleModelChange = async (newModel: string) => {
-    setModel(newModel);
-    try {
-      await updateAIConfig({ model: newModel });
-    } catch (error) {
-      console.error('更新模型设置失败:', error);
-    }
+  const getSelectedValue = () => {
+    return `${selectedProvider.providerIndex}:${selectedProvider.model}`;
   };
 
   return (
@@ -123,19 +174,31 @@ const AIChatSidebar: React.FC = () => {
       </div>
 
       {/* 输入区域 */}
-      <div className="p-4 border-t border-gray-200 space-y-2">
+      <div className="p-4 border-t border-gray-200">
         {/* 工具栏 */}
-        <div className="flex items-center gap-2 justify-between">
-          <div className="w-40">
-            <Select value={model} onValueChange={handleModelChange}>
-              <SelectTrigger className="w-full">
-                <SelectValue placeholder="选择模型" />
+        <div className="flex items-center gap-2 justify-between mb-2">
+          <div className="flex-1">
+            <Select value={getSelectedValue()} onValueChange={handleProviderModelChange}>
+              <SelectTrigger>
+                <SelectValue placeholder="选择 Provider 和模型">
+                  {selectedProvider.model}
+                </SelectValue>
               </SelectTrigger>
               <SelectContent>
-                {models.map((modelId) => (
-                  <SelectItem key={modelId} value={modelId}>
-                    {modelId}
-                  </SelectItem>
+                {providers.map((provider, providerIndex) => (
+                  <SelectGroup key={providerIndex}>
+                    <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
+                      {provider.name}
+                    </SelectLabel>
+                    {providerModels[provider.apiKey]?.map((modelId) => (
+                      <SelectItem
+                        key={`${providerIndex}:${modelId}`}
+                        value={`${providerIndex}:${modelId}`}
+                      >
+                        {modelId}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
@@ -144,7 +207,7 @@ const AIChatSidebar: React.FC = () => {
             variant="ghost"
             size="icon"
             asChild
-            className="h-9 w-9"
+            className="h-9 w-9 shrink-0"
           >
             <a
               href="newtab.html"
@@ -157,23 +220,29 @@ const AIChatSidebar: React.FC = () => {
         </div>
 
         {/* 输入框和发送按钮 */}
-        <div className="flex gap-2">
-          <Input
-            type="text"
-            value={inputValue}
-            onChange={handleInputChange}
-            onKeyUpCapture={handleKeyPress}
-            placeholder="问任何问题，@ 模型，/ 提示"
-            disabled={isLoading}
-            className="flex-1"
-          />
-          <Button
-            onClick={handleSendMessage}
-            disabled={isLoading || !inputValue.trim()}
-            variant="default"
-          >
-            {isLoading ? '发送中...' : '发送'}
-          </Button>
+        <div className="space-y-2">
+          <div className="border rounded-xl p-3 bg-muted/50">
+            <Textarea
+              value={inputValue}
+              onChange={handleInputChange}
+              onKeyDown={handleKeyPress}
+              placeholder="按 Enter 发送，Shift + Enter 换行"
+              disabled={isLoading}
+              className="w-full min-h-[88px] max-h-32 resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
+              rows={3}
+            />
+            <div className="flex justify-end mt-2">
+              <Button
+                onClick={handleSendMessage}
+                disabled={isLoading || !inputValue.trim()}
+                variant="ghost"
+                size="sm"
+                className="h-8 px-0 hover:bg-transparent"
+              >
+                <Send className={`h-5 w-5 ${isLoading ? 'text-muted-foreground animate-pulse' : 'text-primary'}`} />
+              </Button>
+            </div>
+          </div>
         </div>
       </div>
     </div>
