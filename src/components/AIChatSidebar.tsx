@@ -5,12 +5,12 @@ import { Button } from '@/components/ui/button';
 import { useAI } from '../hooks/useAI';
 import { aiService } from '../utils/ai';
 import type { Message } from '../utils/ai';
-import { getAIConfig, watchAIConfig, updateSelectedProvider } from '../utils/storage';
+import { getAIConfig, watchAIConfig, updateSelectedProvider, getAllProviders } from '../utils/storage';
 import type { ProviderConfig, SelectedProviderState } from '../utils/storage';
 import { Settings, Send, Eraser } from 'lucide-react';
 
 interface ProviderModels {
-  [key: string]: string[];  // key 是 provider 的 apiKey
+  [key: string]: string[];  // key 是 provider 的 id
 }
 
 const AIChatSidebar: React.FC = () => {
@@ -20,8 +20,8 @@ const AIChatSidebar: React.FC = () => {
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
   const [providerModels, setProviderModels] = useState<ProviderModels>({});
   const [selectedProvider, setSelectedProvider] = useState<SelectedProviderState>({
-    providerIndex: 0,
-    model: 'gpt-3.5-turbo'
+    providerId: '',
+    model: ''
   });
   const { sendMessage: sendAIMessage } = useAI();
 
@@ -29,16 +29,10 @@ const AIChatSidebar: React.FC = () => {
     loadConfig();
     // 监听配置变化
     const unwatch = watchAIConfig((newConfig) => {
-      setProviders(newConfig.providers);
-      // 如果当前选中的 provider 被删除，自动选择第一个
-      if (selectedProvider.providerIndex >= newConfig.providers.length) {
-        const newSelectedProvider = {
-          providerIndex: 0,
-          model: 'gpt-3.5-turbo'
-        };
-        setSelectedProvider(newSelectedProvider);
-        updateSelectedProvider(newSelectedProvider);
-      }
+      getAllProviders().then(providers => {
+        setProviders(providers);
+        setSelectedProvider(newConfig.selectedProvider);
+      });
     });
 
     return () => unwatch();
@@ -46,8 +40,8 @@ const AIChatSidebar: React.FC = () => {
 
   useEffect(() => {
     // 当 provider 的配置变化时，加载对应的模型列表
-    providers.forEach((provider, index) => {
-      if (provider.apiKey && (!providerModels[provider.apiKey] || providerModels[provider.apiKey].length === 0)) {
+    providers.forEach(provider => {
+      if (provider.apiKey && (!providerModels[provider.id] || providerModels[provider.id].length === 0)) {
         loadModels(provider);
       }
     });
@@ -56,7 +50,8 @@ const AIChatSidebar: React.FC = () => {
   const loadConfig = async () => {
     try {
       const config = await getAIConfig();
-      setProviders(config.providers);
+      const providerList = await getAllProviders();
+      setProviders(providerList);
       setSelectedProvider(config.selectedProvider);
     } catch (error) {
       console.error('加载配置失败:', error);
@@ -66,9 +61,10 @@ const AIChatSidebar: React.FC = () => {
   const loadModels = async (provider: ProviderConfig) => {
     try {
       const modelList = await aiService.listModels(provider);
+      console.debug(modelList)
       setProviderModels(prev => ({
         ...prev,
-        [provider.apiKey]: modelList
+        [provider.id]: modelList
       }));
     } catch (error) {
       console.error('加载模型列表失败:', error);
@@ -87,9 +83,9 @@ const AIChatSidebar: React.FC = () => {
   };
 
   const handleProviderModelChange = async (value: string) => {
-    const [providerIndex, model] = value.split(':');
+    const [providerId, model] = value.split(':');
     const newSelectedProvider = {
-      providerIndex: parseInt(providerIndex),
+      providerId,
       model
     };
     setSelectedProvider(newSelectedProvider);
@@ -120,11 +116,7 @@ const AIChatSidebar: React.FC = () => {
       };
       setMessages(prev => [...prev, pendingMessage]);
 
-      const provider = providers[selectedProvider.providerIndex];
-      const aiResponse = await sendAIMessage(inputValue, {
-        ...provider,
-        model: selectedProvider.model
-      });
+      const aiResponse = await sendAIMessage(inputValue, selectedProvider.providerId, selectedProvider.model);
       console.debug('aiResponse', aiResponse);
 
       // 替换待处理消息为实际回复
@@ -146,13 +138,12 @@ const AIChatSidebar: React.FC = () => {
   };
 
   const getSelectedValue = () => {
-    return `${selectedProvider.providerIndex}:${selectedProvider.model}`;
+    return `${selectedProvider.providerId}:${selectedProvider.model}`;
   };
 
   const handleClearHistory = async () => {
     try {
-      const provider = providers[selectedProvider.providerIndex];
-      await aiService.clearHistory(provider);
+      await aiService.clearHistory(selectedProvider.providerId);
       setMessages([]);
     } catch (error) {
       console.error('清除历史记录失败:', error);
@@ -200,22 +191,40 @@ const AIChatSidebar: React.FC = () => {
         {/* 工具栏 */}
         <div className="flex items-center gap-2 justify-between mb-2">
           <div className="flex-1">
-            <Select value={getSelectedValue()} onValueChange={handleProviderModelChange}>
+            <Select
+              value={getSelectedValue()}
+              onValueChange={handleProviderModelChange}
+              onOpenChange={(open) => {
+                if (open) {
+                  // 当下拉框打开时，加载所有 provider 的模型列表
+                  providers.forEach(provider => {
+                    console.debug(provider);
+                    loadModels(provider);
+                  });
+                }
+              }}
+            >
               <SelectTrigger>
                 <SelectValue placeholder="选择 Provider 和模型">
-                  {selectedProvider.model}
+                  {(() => {
+                    const provider = providers.find(p => p.id === selectedProvider.providerId);
+                    if (provider) {
+                      return `${provider.name} - ${selectedProvider.model}`;
+                    }
+                    return selectedProvider.model;
+                  })()}
                 </SelectValue>
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-y-auto">
-                {providers.map((provider, providerIndex) => (
-                  <SelectGroup key={providerIndex}>
+                {providers.map((provider) => (
+                  <SelectGroup key={provider.id}>
                     <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                       {provider.name}
                     </SelectLabel>
-                    {providerModels[provider.apiKey]?.map((modelId) => (
+                    {providerModels[provider.id]?.map((modelId) => (
                       <SelectItem
-                        key={`${providerIndex}:${modelId}`}
-                        value={`${providerIndex}:${modelId}`}
+                        key={`${provider.id}:${modelId}`}
+                        value={`${provider.id}:${modelId}`}
                       >
                         {modelId}
                       </SelectItem>

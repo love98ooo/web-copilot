@@ -1,24 +1,29 @@
 import { storage } from 'wxt/storage';
 import type { ChatMessage } from './ai';
 
+// 定义 Provider 类型
+export type ProviderType = 'openai' | 'gemini';
+
 // 定义单个 Provider 的配置接口
 export interface ProviderConfig {
+  id: string;  // provider 的唯一标识
+  type: ProviderType;  // provider 类型
   apiKey: string;
   baseUrl: string;
-  model: string;
-  name?: string;  // provider 名称，用于显示
+  name: string;  // provider 名称
+  models: string[];  // provider 支持的模型列表
 }
 
 // 定义选中的 Provider 状态接口
 export interface SelectedProviderState {
-  providerIndex: number;
+  providerId: string;  // provider 的唯一标识
   model: string;
 }
 
 // 定义配置项的接口
 export interface AIConfig {
   version: number;
-  providers: ProviderConfig[];
+  providerList: string[];  // provider id 列表
   selectedProvider: SelectedProviderState;
 }
 
@@ -28,27 +33,77 @@ export interface ChatHistories {
 }
 
 // 从环境变量获取默认配置
-const getDefaultProvider = (): ProviderConfig => ({
-  apiKey: import.meta.env.OPENAI_API_KEY || '',
-  baseUrl: import.meta.env.OPENAI_API_BASE_URL || 'https://api.openai.com/v1',
-  model: import.meta.env.OPENAI_API_MODEL || 'gpt-3.5-turbo',
-  name: 'OpenAI'
-});
+const getDefaultProviders = (): [string[], Record<string, ProviderConfig>] => {
+  console.debug(import.meta.env);
+  const providers: Record<string, ProviderConfig> = {};
+  const providerList: string[] = [];
+
+  // OpenAI 配置
+  if (import.meta.env.VITE_OPENAI_API_KEY) {
+    const id = 'openai-default';
+    providers[id] = {
+      id,
+      type: 'openai',
+      apiKey: import.meta.env.VITE_OPENAI_API_KEY,
+      baseUrl: import.meta.env.VITE_OPENAI_API_BASE_URL || 'https://api.openai.com/v1',
+      name: import.meta.env.VITE_OPENAI_API_NAME || 'OpenAI',
+      models: [import.meta.env.VITE_OPENAI_API_MODEL || 'gpt-3.5-turbo']
+    };
+    providerList.push(id);
+  }
+
+  // Gemini 配置
+  if (import.meta.env.VITE_GEMINI_API_KEY) {
+    const id = 'gemini-default';
+    providers[id] = {
+      id,
+      type: 'gemini',
+      apiKey: import.meta.env.VITE_GEMINI_API_KEY,
+      baseUrl: '',
+      name: import.meta.env.VITE_GEMINI_API_NAME || 'Gemini',
+      models: [import.meta.env.VITE_GEMINI_API_MODEL || 'gemini-2.0-flash']
+    };
+    providerList.push(id);
+  }
+
+  // 如果没有配置任何 provider，添加一个空的 OpenAI 配置
+  if (providerList.length === 0) {
+    const id = 'openai-default';
+    providers[id] = {
+      id,
+      type: 'openai',
+      apiKey: '',
+      baseUrl: 'https://api.openai.com/v1',
+      name: 'OpenAI',
+      models: ['gpt-3.5-turbo']
+    };
+    providerList.push(id);
+  }
+
+  return [providerList, providers];
+};
 
 // 定义默认配置
+const [defaultProviderList, defaultProviders] = getDefaultProviders();
 const DEFAULT_CONFIG: AIConfig = {
-  version: 2,
-  providers: [getDefaultProvider()],
+  version: 3,
+  providerList: defaultProviderList,
   selectedProvider: {
-    providerIndex: 0,
-    model: import.meta.env.OPENAI_API_MODEL || 'gpt-3.5-turbo'
+    providerId: defaultProviderList[0],
+    model: defaultProviders[defaultProviderList[0]].models[0]
   }
 };
 
 // 创建配置存储项
 export const aiConfig = storage.defineItem<AIConfig>('local:ai_config', {
   fallback: DEFAULT_CONFIG,
-  version: 2
+  version: 3
+});
+
+// 创建 provider 存储项
+export const providers = storage.defineItem<Record<string, ProviderConfig>>('local:providers', {
+  fallback: defaultProviders,
+  version: 1
 });
 
 // 创建历史记录存储项
@@ -60,73 +115,137 @@ export const chatHistories = storage.defineItem<ChatHistories>('local:chat_histo
 // 辅助函数：获取配置
 export async function getAIConfig(): Promise<AIConfig> {
   const config = await aiConfig.getValue();
+  const storedProviders = await providers.getValue();
 
-  // 如果没有配置 provider，使用环境变量配置
-  if (config.providers.length === 0 || !config.providers[0].apiKey) {
-    const defaultProvider = getDefaultProvider();
-    if (defaultProvider.apiKey) {
-      config.providers = [defaultProvider];
+  // 如果没有配置 provider 或者 providerList 为 undefined，使用环境变量配置
+  if (!config.providerList || config.providerList.length === 0) {
+    const [defaultProviderList, defaultProviders] = getDefaultProviders();
+    if (defaultProviderList.length > 0) {
+      config.providerList = defaultProviderList;
+      await providers.setValue(defaultProviders);
       config.selectedProvider = {
-        providerIndex: 0,
-        model: defaultProvider.model
+        providerId: defaultProviderList[0],
+        model: defaultProviders[defaultProviderList[0]].models[0]
+      };
+      await aiConfig.setValue(config);
+    } else {
+      // 如果没有默认配置，初始化为空数组
+      config.providerList = [];
+      config.selectedProvider = {
+        providerId: '',
+        model: ''
       };
       await aiConfig.setValue(config);
     }
   }
 
-  return config;
-}
-
-// 辅助函数：更新配置
-export async function updateAIConfig(config: Partial<AIConfig>): Promise<void> {
-  console.debug('updateAIConfig', config);
-  const currentConfig = await getAIConfig();
-  await aiConfig.setValue({
-    ...currentConfig,
-    ...config
-  });
-}
-
-// 辅助函数：更新指定 provider 的配置
-export async function updateProvider(index: number, provider: Partial<ProviderConfig>): Promise<void> {
-  const config = await getAIConfig();
-  config.providers[index] = {
-    ...config.providers[index],
-    ...provider
-  };
-  await aiConfig.setValue(config);
-}
-
-// 辅助函数：添加新的 provider
-export async function addProvider(provider: ProviderConfig): Promise<void> {
-  const config = await getAIConfig();
-  config.providers.push(provider);
-  await aiConfig.setValue(config);
-}
-
-// 辅助函数：删除 provider
-export async function removeProvider(index: number): Promise<void> {
-  const config = await getAIConfig();
-  if (config.providers.length > 1) {  // 确保至少保留一个 provider
-    config.providers.splice(index, 1);
-    // 如果删除的是当前选中的 provider 或之前的 provider
-    if (config.selectedProvider.providerIndex >= index) {
-      config.selectedProvider.providerIndex = Math.max(0, config.selectedProvider.providerIndex - 1);
+  // 确保所有引用的 provider 都存在
+  const validProviderList = config.providerList.filter(id => storedProviders[id]);
+  if (validProviderList.length !== config.providerList.length) {
+    config.providerList = validProviderList;
+    if (validProviderList.length > 0 && (!config.selectedProvider.providerId || !storedProviders[config.selectedProvider.providerId])) {
+      const firstProvider = storedProviders[validProviderList[0]];
+      config.selectedProvider = {
+        providerId: firstProvider.id,
+        model: firstProvider.models[0]
+      };
     }
     await aiConfig.setValue(config);
   }
+
+  return config;
+}
+
+// 辅助函数：获取所有 provider 配置
+export async function getAllProviders(): Promise<ProviderConfig[]> {
+  const config = await getAIConfig();
+  const storedProviders = await providers.getValue();
+  return config.providerList.filter(id => storedProviders[id]).map(id => storedProviders[id]);
+}
+
+// 辅助函数：获取指定 provider 配置
+export async function getProvider(id: string): Promise<ProviderConfig | null> {
+  const storedProviders = await providers.getValue();
+  return storedProviders[id] || null;
+}
+
+// 辅助函数：更新 provider 配置
+export async function updateProvider(id: string, config: Partial<ProviderConfig>): Promise<void> {
+  const storedProviders = await providers.getValue();
+  if (storedProviders[id]) {
+    storedProviders[id] = {
+      ...storedProviders[id],
+      ...config
+    };
+    await providers.setValue(storedProviders);
+  }
+}
+
+// 辅助函数：添加新的 provider
+export async function addProvider(config: Omit<ProviderConfig, 'id'>): Promise<string> {
+  const id = `${config.type}-${Date.now()}`;
+  const newProvider: ProviderConfig = {
+    ...config,
+    id
+  };
+
+  const storedProviders = await providers.getValue();
+  storedProviders[id] = newProvider;
+  await providers.setValue(storedProviders);
+
+  const aiconf = await aiConfig.getValue();
+  aiconf.providerList.push(id);
+  await aiConfig.setValue(aiconf);
+
+  return id;
+}
+
+// 辅助函数：删除 provider
+export async function removeProvider(id: string): Promise<void> {
+  const aiconf = await aiConfig.getValue();
+  const storedProviders = await providers.getValue();
+
+  // 从列表中移除
+  const index = aiconf.providerList.indexOf(id);
+  if (index !== -1) {
+    aiconf.providerList.splice(index, 1);
+  }
+
+  // 如果删除的是当前选中的 provider，选择第一个可用的
+  if (aiconf.selectedProvider.providerId === id && aiconf.providerList.length > 0) {
+    const firstProvider = storedProviders[aiconf.providerList[0]];
+    aiconf.selectedProvider = {
+      providerId: firstProvider.id,
+      model: firstProvider.models[0]
+    };
+  }
+
+  // 删除 provider 配置
+  delete storedProviders[id];
+
+  await aiConfig.setValue(aiconf);
+  await providers.setValue(storedProviders);
 }
 
 // 辅助函数：更新选中的 provider
-export async function updateSelectedProvider(selectedProvider: SelectedProviderState): Promise<void> {
+export async function updateSelectedProvider(selected: SelectedProviderState): Promise<void> {
   const config = await getAIConfig();
-  config.selectedProvider = selectedProvider;
+  config.selectedProvider = selected;
   await aiConfig.setValue(config);
 }
 
 // 辅助函数：重置配置
 export async function resetAIConfig(): Promise<void> {
-  await aiConfig.setValue(DEFAULT_CONFIG);
+  const [defaultProviderList, defaultProviders] = getDefaultProviders();
+  await aiConfig.setValue({
+    version: 3,
+    providerList: defaultProviderList,
+    selectedProvider: {
+      providerId: defaultProviderList[0],
+      model: defaultProviders[defaultProviderList[0]].models[0]
+    }
+  });
+  await providers.setValue(defaultProviders);
 }
 
 // 监听配置变化
@@ -135,21 +254,21 @@ export function watchAIConfig(callback: (newConfig: AIConfig, oldConfig: AIConfi
 }
 
 // 辅助函数：获取历史记录
-export async function getChatHistory(providerKey: string): Promise<ChatMessage[]> {
+export async function getChatHistory(providerId: string): Promise<ChatMessage[]> {
   const histories = await chatHistories.getValue();
-  return histories[providerKey] || [];
+  return histories[providerId] || [];
 }
 
 // 辅助函数：更新历史记录
-export async function updateChatHistory(providerKey: string, messages: ChatMessage[]): Promise<void> {
+export async function updateChatHistory(providerId: string, messages: ChatMessage[]): Promise<void> {
   const histories = await chatHistories.getValue();
-  histories[providerKey] = messages;
+  histories[providerId] = messages;
   await chatHistories.setValue(histories);
 }
 
 // 辅助函数：清除历史记录
-export async function clearChatHistory(providerKey: string): Promise<void> {
+export async function clearChatHistory(providerId: string): Promise<void> {
   const histories = await chatHistories.getValue();
-  delete histories[providerKey];
+  delete histories[providerId];
   await chatHistories.setValue(histories);
 }

@@ -1,6 +1,7 @@
 import OpenAI from 'openai';
+import { GoogleGenAI } from '@google/genai';
 import type { ProviderConfig } from './storage';
-import { getChatHistory, updateChatHistory, clearChatHistory } from './storage';
+import { getChatHistory, updateChatHistory, clearChatHistory, getProvider } from './storage';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -23,6 +24,7 @@ export interface AIError {
 export class AIService {
   private static instance: AIService;
   private openaiClients: Map<string, OpenAI> = new Map();
+  private geminiClients: Map<string, GoogleGenAI> = new Map();
 
   private constructor() {}
 
@@ -34,7 +36,7 @@ export class AIService {
   }
 
   private getClientKey(provider: ProviderConfig): string {
-    return `${provider.apiKey}:${provider.baseUrl}`;
+    return `${provider.type}:${provider.apiKey}:${provider.baseUrl}`;
   }
 
   private getOpenAIClient(provider: ProviderConfig): OpenAI {
@@ -53,17 +55,37 @@ export class AIService {
     return client;
   }
 
+  private getGeminiClient(provider: ProviderConfig): GoogleGenAI {
+    const clientKey = this.getClientKey(provider);
+    let client = this.geminiClients.get(clientKey);
+
+    if (!client) {
+      client = new GoogleGenAI({ apiKey: provider.apiKey });
+      this.geminiClients.set(clientKey, client);
+    }
+
+    return client;
+  }
+
   public async listModels(provider: ProviderConfig): Promise<string[]> {
     try {
-      const openai = this.getOpenAIClient(provider);
-      const response = await openai.models.list();
-
-      // 过滤出 GPT 模型
-      const gptModels = response.data
-        .map(model => model.id)
-        .sort();
-
-      return gptModels;
+      if (provider.type === 'openai') {
+        const openai = this.getOpenAIClient(provider);
+        const response = await openai.models.list();
+        return response.data.map(model => model.id).sort();
+      } else if (provider.type === 'gemini') {
+        // Gemini 的可用模型列表
+        return [
+          'gemini-2.5-pro-exp-03-25',  // 最强大的思维模型，最高的响应准确度
+          'gemini-2.0-flash',          // 新一代多模态模型，支持代码和图像生成
+          'gemini-2.0-flash-lite',     // 优化成本和延迟的 2.0 Flash 模型
+          'gemini-1.5-flash',          // 快速且通用的性能
+          'gemini-1.5-flash-8b',       // 适用于高容量和低智能任务
+          'gemini-1.5-pro',            // 适用于需要更多智能的复杂推理任务
+          'gemini-embedding-exp'        // 用于测量文本字符串相关性
+        ];
+      }
+      return [];
     } catch (error: any) {
       console.error('获取模型列表失败:', error);
       throw this.formatError(error);
@@ -100,35 +122,41 @@ export class AIService {
     };
   }
 
-  public async sendMessage(message: string, provider: ProviderConfig): Promise<string> {
+  public async sendMessage(message: string, providerId: string, model: string): Promise<string> {
     try {
-      const openai = this.getOpenAIClient(provider);
-      const clientKey = this.getClientKey(provider);
+      const provider = await getProvider(providerId);
+      if (!provider) {
+        throw new Error('Provider not found');
+      }
 
-      // 从存储中获取历史记录
-      const history = await getChatHistory(clientKey);
-
-      // 添加用户消息到历史
+      const history = await getChatHistory(providerId);
       const userMessage: ChatMessage = { role: 'user', content: message };
       history.push(userMessage);
 
-      const completion = await openai.chat.completions.create({
-        messages: history,
-        model: provider.model,
-        stream: false,
-        temperature: 0.7,
-      });
+      let aiResponse: string | undefined;
 
-      const aiResponse = completion.choices[0]?.message?.content;
+      if (provider.type === 'openai') {
+        const openai = this.getOpenAIClient(provider);
+        const completion = await openai.chat.completions.create({
+          messages: history,
+          model: model,
+          stream: false,
+          temperature: 0.7,
+        });
+        aiResponse = completion.choices[0]?.message?.content || undefined;
+      } else if (provider.type === 'gemini') {
+        const genai = this.getGeminiClient(provider);
+        const response = await genai.models.generateContent({
+          model: model,
+          contents: message
+        });
+        aiResponse = response.text || undefined;
+      }
 
       if (aiResponse) {
-        // 添加 AI 回复到历史
         const assistantMessage: ChatMessage = { role: 'assistant', content: aiResponse };
         history.push(assistantMessage);
-
-        // 更新存储中的历史记录
-        await updateChatHistory(clientKey, history);
-
+        await updateChatHistory(providerId, history);
         return aiResponse;
       }
 
@@ -139,9 +167,8 @@ export class AIService {
     }
   }
 
-  public async clearHistory(provider: ProviderConfig): Promise<void> {
-    const clientKey = this.getClientKey(provider);
-    await clearChatHistory(clientKey);
+  public async clearHistory(providerId: string): Promise<void> {
+    await clearChatHistory(providerId);
   }
 }
 

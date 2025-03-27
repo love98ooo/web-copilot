@@ -2,25 +2,29 @@ import React, { useEffect, useState } from 'react';
 import { Input } from '@/components/ui/input';
 import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { getAIConfig, updateProvider, addProvider, removeProvider } from '@/utils/storage';
+import { getAIConfig, updateProvider, addProvider, removeProvider, getAllProviders } from '@/utils/storage';
 import { aiService } from '@/utils/ai';
 import type { AIError } from '@/utils/ai';
+import type { ProviderConfig, ProviderType } from '@/utils/storage';
 import { Plus, Trash2 } from 'lucide-react';
 
 interface ProviderFormState {
+  id: string;
+  type: ProviderType;
   apiKey: string;
   baseUrl: string;
-  model: string;
   name: string;
+  models: string[];
 }
 
-interface ProviderModels {
-  [key: string]: string[];  // key 是 provider 的 apiKey
-}
+// SDK 类型选项
+const SDK_TYPES: { value: ProviderType; label: string; baseUrl?: string }[] = [
+  { value: 'openai', label: 'OpenAI 兼容', baseUrl: 'https://api.openai.com/v1' },
+  { value: 'gemini', label: 'Google Gemini', baseUrl: '' }
+];
 
 export const SettingsPage: React.FC = () => {
   const [providers, setProviders] = useState<ProviderFormState[]>([]);
-  const [providerModels, setProviderModels] = useState<ProviderModels>({});
   const [status, setStatus] = useState<'idle' | 'saving' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
 
@@ -28,23 +32,16 @@ export const SettingsPage: React.FC = () => {
     loadConfig();
   }, []);
 
-  useEffect(() => {
-    // 当 provider 的 API Key 改变时，加载对应的模型列表
-    providers.forEach((provider, index) => {
-      if (provider.apiKey && (!providerModels[provider.apiKey] || providerModels[provider.apiKey].length === 0)) {
-        loadModels(provider.apiKey, index);
-      }
-    });
-  }, [providers]);
-
   const loadConfig = async () => {
     try {
-      const config = await getAIConfig();
-      setProviders(config.providers.map(p => ({
-        apiKey: p.apiKey || '',
-        baseUrl: p.baseUrl || '',
-        model: p.model || '',
-        name: p.name || 'OpenAI'
+      const providers = await getAllProviders();
+      setProviders(providers.map(p => ({
+        id: p.id,
+        type: p.type,
+        apiKey: p.apiKey,
+        baseUrl: p.baseUrl,
+        name: p.name,
+        models: p.models
       })));
     } catch (error) {
       console.error('加载配置失败:', error);
@@ -53,46 +50,38 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const loadModels = async (apiKey: string, providerIndex: number) => {
+  const loadModels = async (provider: ProviderFormState): Promise<string[]> => {
     try {
-      const provider = providers[providerIndex];
-      const modelList = await aiService.listModels(provider);
-
-      // 检查数据是否有变化
-      const currentModels = providerModels[apiKey] || [];
-      const hasChanges = modelList.length !== currentModels.length ||
-        modelList.some((model, idx) => currentModels[idx] !== model);
-
-      if (hasChanges) {
-        setProviderModels(prev => ({
-          ...prev,
-          [apiKey]: modelList
-        }));
-      }
+      return await aiService.listModels(provider);
     } catch (error) {
       const aiError = error as AIError;
       console.error('加载模型列表失败:', aiError);
       setStatus('error');
       setErrorMessage(aiError.message || '加载模型列表失败');
+      return [];
     }
   };
 
   const handleProviderChange = (index: number, field: keyof ProviderFormState, value: string) => {
     const newProviders = [...providers];
-    const oldApiKey = newProviders[index].apiKey;
+    const provider = newProviders[index];
 
-    newProviders[index] = {
-      ...newProviders[index],
-      [field]: value
-    };
-
-    // 如果 API Key 改变，清除旧的模型列表
-    if (field === 'apiKey' && oldApiKey !== value) {
-      setProviderModels(prev => {
-        const newModels = { ...prev };
-        delete newModels[oldApiKey];
-        return newModels;
-      });
+    if (field === 'type') {
+      // 当切换 SDK 类型时，更新 baseUrl 和清空模型列表
+      const sdkType = SDK_TYPES.find(type => type.value === value);
+      if (sdkType) {
+        newProviders[index] = {
+          ...provider,
+          type: value as ProviderType,
+          baseUrl: sdkType.baseUrl || '',
+          models: []
+        };
+      }
+    } else {
+      newProviders[index] = {
+        ...provider,
+        [field]: value
+      };
     }
 
     setProviders(newProviders);
@@ -101,7 +90,17 @@ export const SettingsPage: React.FC = () => {
   const handleSave = async (index: number) => {
     try {
       setStatus('saving');
-      await updateProvider(index, providers[index]);
+      const provider = providers[index];
+
+      // 获取最新的模型列表
+      const modelList = await loadModels(provider);
+
+      // 更新 provider 配置
+      await updateProvider(provider.id, {
+        ...provider,
+        models: modelList
+      });
+
       setStatus('success');
       setTimeout(() => setStatus('idle'), 2000);
     } catch (error) {
@@ -114,12 +113,14 @@ export const SettingsPage: React.FC = () => {
   const handleAddProvider = async () => {
     try {
       const newProvider = {
+        type: 'openai' as ProviderType,
         apiKey: '',
         baseUrl: 'https://api.openai.com/v1',
-        model: 'gpt-3.5-turbo',
-        name: `Provider ${providers.length + 1}`
+        name: `Provider ${providers.length + 1}`,
+        models: []
       };
-      await addProvider(newProvider);
+
+      const id = await addProvider(newProvider);
       await loadConfig();
     } catch (error) {
       console.error('添加 Provider 失败:', error);
@@ -128,16 +129,9 @@ export const SettingsPage: React.FC = () => {
     }
   };
 
-  const handleRemoveProvider = async (index: number) => {
+  const handleRemoveProvider = async (id: string) => {
     try {
-      const provider = providers[index];
-      await removeProvider(index);
-      // 清除被删除 provider 的模型列表
-      setProviderModels(prev => {
-        const newModels = { ...prev };
-        delete newModels[provider.apiKey];
-        return newModels;
-      });
+      await removeProvider(id);
       await loadConfig();
     } catch (error) {
       console.error('删除 Provider 失败:', error);
@@ -159,7 +153,7 @@ export const SettingsPage: React.FC = () => {
 
         <div className="space-y-8">
           {providers.map((provider, index) => (
-            <div key={index} className="p-4 border rounded-lg space-y-4">
+            <div key={provider.id} className="p-4 border rounded-lg space-y-4">
               <div className="flex justify-between items-center">
                 <div className="flex items-center gap-2">
                   <Input
@@ -172,7 +166,7 @@ export const SettingsPage: React.FC = () => {
                 <div className="flex items-center gap-2">
                   {providers.length > 1 && (
                     <Button
-                      onClick={() => handleRemoveProvider(index)}
+                      onClick={() => handleRemoveProvider(provider.id)}
                       variant="ghost"
                       size="sm"
                       className="text-red-500 hover:text-red-600"
@@ -181,6 +175,27 @@ export const SettingsPage: React.FC = () => {
                     </Button>
                   )}
                 </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  SDK 类型
+                </label>
+                <Select
+                  value={provider.type}
+                  onValueChange={(value) => handleProviderChange(index, 'type', value)}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="选择 SDK 类型" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {SDK_TYPES.map((type) => (
+                      <SelectItem key={type.value} value={type.value}>
+                        {type.label}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
               </div>
 
               <div>
@@ -195,49 +210,22 @@ export const SettingsPage: React.FC = () => {
                 />
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  API Base URL
-                </label>
-                <Input
-                  type="text"
-                  value={provider.baseUrl}
-                  onChange={(e) => handleProviderChange(index, 'baseUrl', e.target.value)}
-                  placeholder="https://api.openai.com/v1"
-                />
-                <p className="mt-1 text-sm text-gray-500">
-                  如果使用代理服务，请在此设置代理地址
-                </p>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">
-                  AI 模型
-                </label>
-                <Select
-                  value={provider.model}
-                  onValueChange={(value) => handleProviderChange(index, 'model', value)}
-                  onOpenChange={(open) => {
-                    if (open && provider.apiKey) {
-                      loadModels(provider.apiKey, index);
-                    }
-                  }}
-                >
-                  <SelectTrigger>
-                    <SelectValue placeholder="选择 AI 模型" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {providerModels[provider.apiKey]?.map((modelId) => (
-                      <SelectItem key={modelId} value={modelId}>
-                        {modelId}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                <p className="mt-1 text-sm text-gray-500">
-                  选择要使用的 AI 模型。不同模型的能力和价格不同。
-                </p>
-              </div>
+              {provider.type === 'openai' && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    API Base URL
+                  </label>
+                  <Input
+                    type="text"
+                    value={provider.baseUrl}
+                    onChange={(e) => handleProviderChange(index, 'baseUrl', e.target.value)}
+                    placeholder="https://api.openai.com/v1"
+                  />
+                  <p className="mt-1 text-sm text-gray-500">
+                    如果使用代理服务，请在此设置代理地址
+                  </p>
+                </div>
+              )}
 
               <div className="pt-2">
                 <Button

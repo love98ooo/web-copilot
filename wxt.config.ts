@@ -1,4 +1,8 @@
 import { defineConfig } from 'wxt';
+import { config } from 'dotenv';
+
+// 加载环境变量
+config();
 
 // See https://wxt.dev/api/config.html
 export default defineConfig({
