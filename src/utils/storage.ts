@@ -1,4 +1,5 @@
 import { storage } from 'wxt/storage';
+import type { ChatMessage } from './ai';
 
 // 定义单个 Provider 的配置接口
 export interface ProviderConfig {
@@ -21,18 +22,26 @@ export interface AIConfig {
   selectedProvider: SelectedProviderState;
 }
 
+// 定义历史记录存储接口
+export interface ChatHistories {
+  [key: string]: ChatMessage[];  // key 是 provider 的唯一标识
+}
+
+// 从环境变量获取默认配置
+const getDefaultProvider = (): ProviderConfig => ({
+  apiKey: import.meta.env.OPENAI_API_KEY || '',
+  baseUrl: import.meta.env.OPENAI_API_BASE_URL || 'https://api.openai.com/v1',
+  model: import.meta.env.OPENAI_API_MODEL || 'gpt-3.5-turbo',
+  name: 'OpenAI'
+});
+
 // 定义默认配置
 const DEFAULT_CONFIG: AIConfig = {
   version: 2,
-  providers: [{
-    apiKey: '',
-    baseUrl: 'https://api.openai.com/v1',
-    model: 'gpt-3.5-turbo',
-    name: 'OpenAI'
-  }],
+  providers: [getDefaultProvider()],
   selectedProvider: {
     providerIndex: 0,
-    model: 'gpt-3.5-turbo'
+    model: import.meta.env.OPENAI_API_MODEL || 'gpt-3.5-turbo'
   }
 };
 
@@ -42,9 +51,30 @@ export const aiConfig = storage.defineItem<AIConfig>('local:ai_config', {
   version: 2
 });
 
+// 创建历史记录存储项
+export const chatHistories = storage.defineItem<ChatHistories>('local:chat_histories', {
+  fallback: {},
+  version: 1
+});
+
 // 辅助函数：获取配置
 export async function getAIConfig(): Promise<AIConfig> {
-  return await aiConfig.getValue();
+  const config = await aiConfig.getValue();
+
+  // 如果没有配置 provider，使用环境变量配置
+  if (config.providers.length === 0 || !config.providers[0].apiKey) {
+    const defaultProvider = getDefaultProvider();
+    if (defaultProvider.apiKey) {
+      config.providers = [defaultProvider];
+      config.selectedProvider = {
+        providerIndex: 0,
+        model: defaultProvider.model
+      };
+      await aiConfig.setValue(config);
+    }
+  }
+
+  return config;
 }
 
 // 辅助函数：更新配置
@@ -102,4 +132,24 @@ export async function resetAIConfig(): Promise<void> {
 // 监听配置变化
 export function watchAIConfig(callback: (newConfig: AIConfig, oldConfig: AIConfig | null) => void) {
   return aiConfig.watch(callback);
+}
+
+// 辅助函数：获取历史记录
+export async function getChatHistory(providerKey: string): Promise<ChatMessage[]> {
+  const histories = await chatHistories.getValue();
+  return histories[providerKey] || [];
+}
+
+// 辅助函数：更新历史记录
+export async function updateChatHistory(providerKey: string, messages: ChatMessage[]): Promise<void> {
+  const histories = await chatHistories.getValue();
+  histories[providerKey] = messages;
+  await chatHistories.setValue(histories);
+}
+
+// 辅助函数：清除历史记录
+export async function clearChatHistory(providerKey: string): Promise<void> {
+  const histories = await chatHistories.getValue();
+  delete histories[providerKey];
+  await chatHistories.setValue(histories);
 }

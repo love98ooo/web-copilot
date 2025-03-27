@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import type { ProviderConfig } from './storage';
+import { getChatHistory, updateChatHistory, clearChatHistory } from './storage';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
@@ -21,7 +22,6 @@ export interface AIError {
 
 export class AIService {
   private static instance: AIService;
-  private messageHistory: ChatMessage[] = [];
   private openaiClients: Map<string, OpenAI> = new Map();
 
   private constructor() {}
@@ -103,28 +103,32 @@ export class AIService {
   public async sendMessage(message: string, provider: ProviderConfig): Promise<string> {
     try {
       const openai = this.getOpenAIClient(provider);
+      const clientKey = this.getClientKey(provider);
 
-      this.messageHistory.push({
-        role: 'user',
-        content: message
-      });
+      // 从存储中获取历史记录
+      const history = await getChatHistory(clientKey);
+
+      // 添加用户消息到历史
+      const userMessage: ChatMessage = { role: 'user', content: message };
+      history.push(userMessage);
 
       const completion = await openai.chat.completions.create({
-        messages: [{ role: 'user', content: message }],
+        messages: history,
         model: provider.model,
         stream: false,
-        max_tokens: 64,
-        temperature: 0.9,
+        temperature: 0.7,
       });
 
-      console.debug(completion);
       const aiResponse = completion.choices[0]?.message?.content;
 
       if (aiResponse) {
-        this.messageHistory.push({
-          role: 'assistant',
-          content: aiResponse
-        });
+        // 添加 AI 回复到历史
+        const assistantMessage: ChatMessage = { role: 'assistant', content: aiResponse };
+        history.push(assistantMessage);
+
+        // 更新存储中的历史记录
+        await updateChatHistory(clientKey, history);
+
         return aiResponse;
       }
 
@@ -135,8 +139,9 @@ export class AIService {
     }
   }
 
-  public clearHistory(): void {
-    this.messageHistory = [];
+  public async clearHistory(provider: ProviderConfig): Promise<void> {
+    const clientKey = this.getClientKey(provider);
+    await clearChatHistory(clientKey);
   }
 }
 

@@ -3,10 +3,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGr
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useAI } from '../hooks/useAI';
+import { aiService } from '../utils/ai';
 import type { Message } from '../utils/ai';
 import { getAIConfig, watchAIConfig, updateSelectedProvider } from '../utils/storage';
 import type { ProviderConfig, SelectedProviderState } from '../utils/storage';
-import { Settings, Send } from 'lucide-react';
+import { Settings, Send, Eraser } from 'lucide-react';
 
 interface ProviderModels {
   [key: string]: string[];  // key 是 provider 的 apiKey
@@ -148,11 +149,32 @@ const AIChatSidebar: React.FC = () => {
     return `${selectedProvider.providerIndex}:${selectedProvider.model}`;
   };
 
+  const handleClearHistory = async () => {
+    try {
+      const provider = providers[selectedProvider.providerIndex];
+      await aiService.clearHistory(provider);
+      setMessages([]);
+    } catch (error) {
+      console.error('清除历史记录失败:', error);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-white">
       {/* 头部 */}
       <div className="p-4 border-b border-gray-200">
-        <h1 className="text-xl font-bold mb-2">AI 网页助手</h1>
+        <div className="flex items-center justify-between">
+          <h1 className="text-xl font-bold">AI 网页助手</h1>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleClearHistory}
+            className="h-8 w-8 hover:bg-transparent"
+            title="清除对话"
+          >
+            <Eraser className="h-4 w-4" />
+          </Button>
+        </div>
       </div>
 
       {/* 消息列表 */}
@@ -184,7 +206,7 @@ const AIChatSidebar: React.FC = () => {
                   {selectedProvider.model}
                 </SelectValue>
               </SelectTrigger>
-              <SelectContent>
+              <SelectContent className="max-h-[300px] overflow-y-auto">
                 {providers.map((provider, providerIndex) => (
                   <SelectGroup key={providerIndex}>
                     <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
