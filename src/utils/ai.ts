@@ -333,7 +333,11 @@ ${
   /**
    * 切换到指定会话
    */
-  public async switchSession(sessionId: string): Promise<ChatSession | null> {
+  public async switchSession(sessionId: string | undefined): Promise<ChatSession | null> {
+    if (!sessionId) {
+      this.currentSession = null;
+      return null;
+    }
     this.currentSession = await chatHistoryService.getSession(sessionId);
     return this.currentSession;
   }

@@ -3,14 +3,23 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGr
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useAI } from '../hooks/useAI';
-import { aiService } from '../utils/ai';
 import type { Message, MessagePart } from '../utils/ai';
 import { getAIConfig, watchAIConfig, updateSelectedProvider, getAllProviders } from '../utils/storage';
 import type { ProviderConfig, SelectedProviderState } from '../utils/storage';
-import { Settings, Send, Eraser, FileText } from 'lucide-react';
+import { Settings, Send, Eraser, FileText, History, MessageSquarePlus } from 'lucide-react';
 import { pageService } from '../utils/page';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import {
+  Drawer,
+  DrawerContent,
+  DrawerDescription,
+  DrawerHeader,
+  DrawerTitle,
+  DrawerTrigger,
+} from '@/components/ui/drawer';
+import ChatHistory from './ChatHistory';
+import { chatHistoryService } from '../utils/history';
 
 // 自定义组件，用于渲染代码块
 const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
@@ -47,11 +56,12 @@ const AIChatSidebar: React.FC = () => {
   const [pageMaterial, setPageMaterial] = useState<PageContent | null>(null);
   const {
     sendMessage: sendAIMessage,
-    clearCurrentSession,
     getCurrentSession,
     listModels: listAIModels,
     switchSession
   } = useAI();
+  const [isHistoryOpen, setIsHistoryOpen] = useState(false);
+  const [currentSessionId, setCurrentSessionId] = useState<string | undefined>();
 
   // 使用 useCallback 包装加载消息的函数
   const loadMessages = useCallback(() => {
@@ -304,16 +314,6 @@ const AIChatSidebar: React.FC = () => {
     return `${selectedProvider.providerId}:${selectedProvider.model}`;
   };
 
-  const handleClearHistory = async () => {
-    try {
-      await clearCurrentSession();
-      setMessages([]);
-      setPageMaterial(null);  // 清除物料
-    } catch (error) {
-      console.error('清除历史记录失败:', error);
-    }
-  };
-
   const handleReadPage = async () => {
     if (isLoading) return;
 
@@ -341,24 +341,19 @@ const AIChatSidebar: React.FC = () => {
     }
   };
 
+  // 选择历史记录
+  const handleSelectSession = async (sessionId: string) => {
+    const session = await chatHistoryService.getSession(sessionId);
+    if (session) {
+      await switchSession(sessionId);
+      setCurrentSessionId(sessionId);
+      setMessages(session.messages);
+      setIsHistoryOpen(false);
+    }
+  };
+
   return (
     <div className="flex flex-col h-screen bg-white">
-      {/* 头部 */}
-      <div className="p-4 border-b border-gray-200">
-        <div className="flex items-center justify-between">
-          <h1 className="text-xl font-bold">AI 网页助手</h1>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={handleClearHistory}
-            className="h-8 w-8 hover:bg-transparent"
-            title="清除对话"
-          >
-            <Eraser className="h-4 w-4" />
-          </Button>
-        </div>
-      </div>
-
       {/* 消息列表 */}
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
         {messages.map((message) => (
@@ -381,7 +376,8 @@ const AIChatSidebar: React.FC = () => {
       <div className="p-4 border-t border-gray-200">
         {/* 工具栏 */}
         <div className="flex items-center gap-2 justify-between mb-2">
-          <div className="flex-1">
+          <div className="max-w-[calc(80%-100px)] w-40">
+            {/* {模型选择} */}
             <Select
               value={getSelectedValue()}
               onValueChange={handleProviderModelChange}
@@ -395,15 +391,17 @@ const AIChatSidebar: React.FC = () => {
                 }
               }}
             >
-              <SelectTrigger>
+              <SelectTrigger className="text-xs w-full">
                 <SelectValue placeholder="选择 Provider 和模型">
+                  <span className="inline-block truncate max-w-full">
                   {(() => {
                     const provider = providers.find(p => p.id === selectedProvider.providerId);
                     if (provider) {
-                      return `${provider.name} - ${selectedProvider.model}`;
+                      return `${selectedProvider.model}`;
                     }
                     return selectedProvider.model;
                   })()}
+                  </span>
                 </SelectValue>
               </SelectTrigger>
               <SelectContent className="max-h-[300px] overflow-y-auto">
@@ -426,6 +424,7 @@ const AIChatSidebar: React.FC = () => {
             </Select>
           </div>
           <div className="flex gap-1">
+            {/* {读取页面内容} */}
             <Button
               variant="ghost"
               size="icon"
@@ -436,6 +435,49 @@ const AIChatSidebar: React.FC = () => {
             >
               <FileText className="h-4 w-4" />
             </Button>
+
+            {/* 新会话 */}
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                switchSession(undefined);
+                setMessages([]);
+                setCurrentSessionId(undefined);
+              }}
+              className="h-9 w-9 shrink-0"
+              title="新会话"
+            >
+              <MessageSquarePlus className="h-4 w-4" />
+            </Button>
+
+            {/* 历史记录 */}
+            <Drawer open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
+              <DrawerTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-9 w-9 shrink-0"
+                  title="历史记录"
+                >
+                  <History className="h-4 w-4" />
+                </Button>
+              </DrawerTrigger>
+              <DrawerContent className="mx-auto w-full max-w-sm">
+                <DrawerHeader className="pb-0">
+                  <DrawerTitle>历史记录</DrawerTitle>
+                  <DrawerDescription>选择历史记录，切换会话</DrawerDescription>
+                </DrawerHeader>
+                <div className="p-0">
+                  <ChatHistory
+                    onSelect={handleSelectSession}
+                    currentSessionId={currentSessionId}
+                  />
+                </div>
+              </DrawerContent>
+            </Drawer>
+
+            {/* {设置} */}
             <Button
               variant="ghost"
               size="icon"
