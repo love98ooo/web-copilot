@@ -179,28 +179,54 @@ const AIChatSidebar: React.FC = () => {
       // 添加用户消息
       setMessages(prev => [...prev, userMessage]);
 
-      // 添加 pending 消息
-      const pendingMessage: Message = {
-        id: 'pending',
-        content: '正在思考...',
+      // 创建 AI 响应消息
+      const aiMessageId = (Date.now() + 1).toString();
+      const aiMessage: Message = {
+        id: aiMessageId,
+        content: '',
         isUser: false,
         pending: true
       };
-      setMessages(prev => [...prev, pendingMessage]);
 
-      // 发送消息并获取 AI 响应
-      const aiMessage = await sendAIMessage(messageContent, selectedProvider.providerId, selectedProvider.model);
-      console.debug('AI 响应:', aiMessage);
+      // 添加初始的 AI 响应消息
+      setMessages(prev => [...prev, aiMessage]);
 
-      // 更新消息列表，移除 pending 消息并添加 AI 响应
-      setMessages(prev => {
-        const messagesWithoutPending = prev.filter(msg => !msg.pending);
-        return [...messagesWithoutPending, {
-          id: aiMessage.id || Date.now().toString(),
-          content: aiMessage.content,
-          isUser: false
-        }];
-      });
+      // 发送消息并获取 AI 响应流
+      const response = await sendAIMessage(
+        messageContent,
+        selectedProvider.providerId,
+        selectedProvider.model,
+        // 处理流式响应的回调函数
+        (chunk: string) => {
+          setMessages(prev => {
+            const lastMessage = prev[prev.length - 1];
+            if (lastMessage.id === aiMessageId) {
+              return [
+                ...prev.slice(0, -1),
+                {
+                  ...lastMessage,
+                  content: (lastMessage.content as string) + chunk,
+                  pending: false
+                }
+              ];
+            }
+            return prev;
+          });
+        }
+      );
+
+      // 如果流式响应失败，使用完整响应更新
+      if (response) {
+        setMessages(prev => {
+          const messagesWithoutLast = prev.slice(0, -1);
+          return [...messagesWithoutLast, {
+            id: aiMessageId,
+            content: response.content,
+            isUser: false,
+            pending: false
+          }];
+        });
+      }
 
     } catch (error) {
       console.error('Chat error:', error);
