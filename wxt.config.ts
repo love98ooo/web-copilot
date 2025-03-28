@@ -13,7 +13,8 @@ export default defineConfig({
     permissions: [
       'storage',
       'sidePanel',
-      'tabs'
+      'tabs',
+      'scripting'
     ],
     host_permissions: ["<all_urls>"],
     chrome_url_overrides: {

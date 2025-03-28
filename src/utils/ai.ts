@@ -1,16 +1,36 @@
 import OpenAI from 'openai';
 import { GoogleGenAI } from '@google/genai';
 import type { ProviderConfig } from './storage';
-import { getChatHistory, updateChatHistory, clearChatHistory, getProvider } from './storage';
+import { getProvider } from './storage';
+import { chatHistoryService, type ChatSession } from './history';
 
 export interface ChatMessage {
   role: 'user' | 'assistant';
-  content: string;
+  content: string | MessagePart[];
+}
+
+export interface MessagePart {
+  type: string;
+  text?: string;
+  image_url?: {
+    url: string;
+  };
+  page_content?: {
+    url: string;
+    title: string;
+    content: string;
+    metadata?: {
+      description?: string;
+      keywords?: string[];
+      author?: string;
+      publishedTime?: string;
+    };
+  };
 }
 
 export interface Message {
   id: string;
-  content: string;
+  content: string | MessagePart[];
   isUser: boolean;
   pending?: boolean;
 }
@@ -25,6 +45,7 @@ export class AIService {
   private static instance: AIService;
   private openaiClients: Map<string, OpenAI> = new Map();
   private geminiClients: Map<string, GoogleGenAI> = new Map();
+  private currentSession: ChatSession | null = null;
 
   private constructor() {}
 
@@ -122,23 +143,86 @@ export class AIService {
     };
   }
 
-  public async sendMessage(message: string, providerId: string, model: string): Promise<string> {
+  public async sendMessage(
+    content: string | MessagePart[],
+    providerId: string,
+    model: string
+  ): Promise<Message> {
     try {
       const provider = await getProvider(providerId);
       if (!provider) {
         throw new Error('Provider not found');
       }
 
-      const history = await getChatHistory(providerId);
-      const userMessage: ChatMessage = { role: 'user', content: message };
-      history.push(userMessage);
+      // 如果没有当前会话，创建新会话
+      if (!this.currentSession) {
+        this.currentSession = await chatHistoryService.createSession(providerId, model);
+      } else {
+        // 更新当前会话的 provider 和 model
+        await chatHistoryService.updateSession(this.currentSession.id, {
+          providerId,
+          model
+        });
+      }
+
+      // 确保加载最新的会话消息
+      const updatedSession = await chatHistoryService.getSession(this.currentSession.id);
+      if (!updatedSession) {
+        throw new Error('Session not found');
+      }
+      this.currentSession = updatedSession;
+
+      // 创建用户消息
+      const userMessage: Message = {
+        id: Date.now().toString(),
+        content,
+        isUser: true
+      };
+
+      // 添加用户消息到会话
+      await chatHistoryService.addMessage(this.currentSession.id, userMessage);
+
+      // 重新获取更新后的会话以确保消息列表是最新的
+      this.currentSession = await chatHistoryService.getSession(this.currentSession.id);
+      if (!this.currentSession) {
+        throw new Error('Session not found after adding message');
+      }
 
       let aiResponse: string | undefined;
 
       if (provider.type === 'openai') {
         const openai = this.getOpenAIClient(provider);
         const completion = await openai.chat.completions.create({
-          messages: history,
+          messages: this.currentSession.messages.map(msg => {
+            if (Array.isArray(msg.content)) {
+              return {
+                role: msg.isUser ? 'user' : 'assistant',
+                content: msg.content.map(part => {
+                  if (part.type === 'text') {
+                    return {
+                      type: 'text',
+                      text: part.text || ''
+                    } as const;
+                  } else if (part.type === 'page_content') {
+                    return {
+                      type: 'text',
+                      text: `参考页面信息：
+标题: ${part.page_content?.title}
+URL: ${part.page_content?.url}
+内容: ${part.page_content?.content}
+${part.page_content?.metadata?.description ? `描述: ${part.page_content.metadata.description}` : ''}
+${part.page_content?.metadata?.keywords ? `关键词: ${part.page_content.metadata.keywords.join(', ')}` : ''}`
+                    } as const;
+                  }
+                  return null;
+                }).filter((part): part is { type: 'text', text: string } => part !== null)
+              };
+            }
+            return {
+              role: msg.isUser ? 'user' : 'assistant',
+              content: msg.content
+            };
+          }),
           model: model,
           stream: false,
           temperature: 0.7,
@@ -146,18 +230,58 @@ export class AIService {
         aiResponse = completion.choices[0]?.message?.content || undefined;
       } else if (provider.type === 'gemini') {
         const genai = this.getGeminiClient(provider);
+        // 将历史消息转换为 Gemini 格式
+        const historyContent = this.currentSession.messages.map(msg => {
+          if (Array.isArray(msg.content)) {
+            return {
+              role: msg.isUser ? 'user' : 'model',
+              parts: msg.content.map(part => {
+                if (part.type === 'text') {
+                  return {
+                    text: part.text
+                  };
+                } else if (part.type === 'page_content') {
+                  return {
+                    text: `参考页面信息：
+标题: ${part.page_content?.title}
+URL: ${part.page_content?.url}
+内容: ${part.page_content?.content}
+${part.page_content?.metadata?.description ? `描述: ${part.page_content.metadata.description}` : ''}
+${part.page_content?.metadata?.keywords ? `关键词: ${part.page_content.metadata.keywords.join(', ')}` : ''}`
+                  };
+                }
+                return null;
+              }).filter(part => part !== null)
+            };
+          }
+          return {
+            role: msg.isUser ? 'user' : 'model',
+            parts: [{
+              text: msg.content as string
+            }]
+          };
+        });
+
         const response = await genai.models.generateContent({
           model: model,
-          contents: message
+          contents: historyContent
         });
         aiResponse = response.text || undefined;
       }
 
       if (aiResponse) {
-        const assistantMessage: ChatMessage = { role: 'assistant', content: aiResponse };
-        history.push(assistantMessage);
-        await updateChatHistory(providerId, history);
-        return aiResponse;
+        // 创建 AI 响应消息
+        const assistantMessage: Message = {
+          id: Date.now().toString(),
+          content: aiResponse,
+          isUser: false
+        };
+
+        // 添加 AI 响应到会话
+        await chatHistoryService.addMessage(this.currentSession.id, assistantMessage);
+
+        // 返回完整的消息对象
+        return assistantMessage;
       }
 
       throw new Error('AI 没有返回任何内容');
@@ -167,8 +291,37 @@ export class AIService {
     }
   }
 
-  public async clearHistory(providerId: string): Promise<void> {
-    await clearChatHistory(providerId);
+  /**
+   * 获取当前会话
+   */
+  public getCurrentSession(): ChatSession | null {
+    return this.currentSession;
+  }
+
+  /**
+   * 切换到指定会话
+   */
+  public async switchSession(sessionId: string): Promise<ChatSession | null> {
+    this.currentSession = await chatHistoryService.getSession(sessionId);
+    return this.currentSession;
+  }
+
+  /**
+   * 清除当前会话
+   */
+  public async clearCurrentSession(): Promise<void> {
+    if (this.currentSession) {
+      await chatHistoryService.deleteSession(this.currentSession.id);
+      this.currentSession = null;
+    }
+  }
+
+  /**
+   * 清除所有会话
+   */
+  public async clearAllSessions(): Promise<void> {
+    await chatHistoryService.clearAllSessions();
+    this.currentSession = null;
   }
 }
 

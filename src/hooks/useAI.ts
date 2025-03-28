@@ -5,7 +5,10 @@ export function useAI() {
 
   return {
     sendMessage: aiService.sendMessage.bind(aiService),
-    clearHistory: aiService.clearHistory.bind(aiService),
+    clearCurrentSession: aiService.clearCurrentSession.bind(aiService),
+    clearAllSessions: aiService.clearAllSessions.bind(aiService),
+    getCurrentSession: aiService.getCurrentSession.bind(aiService),
+    switchSession: aiService.switchSession.bind(aiService),
     listModels: aiService.listModels.bind(aiService)
   };
 } 
