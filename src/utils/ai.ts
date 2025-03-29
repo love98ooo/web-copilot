@@ -164,12 +164,14 @@ export class AIService {
           providerId,
           model
         );
+        console.debug("创建新会话: ", this.currentSession.id);
       } else {
         // 更新当前会话的 provider 和 model
         await chatHistoryService.updateSession(this.currentSession.id, {
           providerId,
           model,
         });
+        console.debug("更新会话: ", this.currentSession.id);
       }
 
       // 确保加载最新的会话消息
@@ -264,8 +266,9 @@ ${
         // 将历史消息转换为 Gemini 格式
         const result = await genai.models.generateContentStream({
           model: model,
-          contents: Array.isArray(content)
-            ? content
+          contents: this.currentSession.messages.map((msg) => {
+            if (Array.isArray(msg.content)) {
+              return msg.content
                 .map((part) => {
                   if (part.type === "text") {
                     return { text: part.text || "" };
@@ -290,7 +293,9 @@ ${
                   return null;
                 })
                 .filter((part) => part !== null)
-            : [{ text: content as string }],
+            }
+            return [{ text: msg.content as string }]
+          })
         });
 
         for await (const chunk of result) {

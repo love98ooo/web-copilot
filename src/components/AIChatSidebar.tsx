@@ -6,7 +6,7 @@ import { useAI } from '../hooks/useAI';
 import type { Message, MessagePart } from '../utils/ai';
 import { getAIConfig, watchAIConfig, updateSelectedProvider, getAllProviders } from '../utils/storage';
 import type { ProviderConfig, SelectedProviderState } from '../utils/storage';
-import { Settings, Send, Eraser, FileText, History, MessageSquarePlus } from 'lucide-react';
+import { Settings, Send, FileText, History, MessageSquarePlus } from 'lucide-react';
 import { pageService } from '../utils/page';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -19,6 +19,8 @@ import {
   DrawerTrigger,
 } from '@/components/ui/drawer';
 import ChatHistory from './ChatHistory';
+import MessageList from './MessageList';
+
 import { chatHistoryService } from '../utils/history';
 
 // 自定义组件，用于渲染代码块
@@ -355,22 +357,7 @@ const AIChatSidebar: React.FC = () => {
   return (
     <div className="flex flex-col h-screen bg-white">
       {/* 消息列表 */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-4">
-        {messages.map((message) => (
-          <div
-            key={message.id}
-            className={`flex ${message.isUser ? 'justify-end' : 'justify-start'}`}
-          >
-            <div className={`max-w-[80%] p-3 rounded-lg ${
-              message.isUser
-                ? 'bg-blue-500 text-white'
-                : 'bg-gray-100 text-gray-800'
-            } ${message?.pending ? 'animate-pulse' : ''}`}>
-              {renderMessageContent(message)}
-            </div>
-          </div>
-        ))}
-      </div>
+      <MessageList messages={messages} />
 
       {/* 输入区域 */}
       <div className="p-4 border-t border-gray-200">
@@ -523,12 +510,12 @@ const AIChatSidebar: React.FC = () => {
               </Button>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center text-sm">
-                <span className="font-medium mr-2">标题:</span>
+              <div className="flex items-center text-xs">
+                <span className="font-sm mr-2 min-w-8">标题:</span>
                 <span className="text-gray-600 dark:text-gray-300 truncate">{pageMaterial.title}</span>
               </div>
-              <div className="flex items-center text-sm">
-                <span className="font-medium mr-2">URL:</span>
+              <div className="flex items-center text-xs">
+                <span className="font-sm mr-2 min-w-8">URL:</span>
                 <a
                   href={pageMaterial.url}
                   target="_blank"
@@ -538,8 +525,8 @@ const AIChatSidebar: React.FC = () => {
                   {pageMaterial.url}
                 </a>
               </div>
-              <div className="text-sm">
-                <div className="font-medium mb-1">内容预览:</div>
+              <div className="text-xs">
+                <div className="font-sm mb-1">内容预览:</div>
                 <p className="text-gray-600 dark:text-gray-300 line-clamp-3">
                   {pageMaterial.content}
                 </p>
