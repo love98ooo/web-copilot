@@ -7,6 +7,9 @@ config();
 // See https://wxt.dev/api/config.html
 export default defineConfig({
   extensionApi: 'chrome',
+  runner: {
+    chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'],
+  },
   manifest: {
     name: 'AI Web Copilot',
     description: 'Your AI assistant for web browsing',
@@ -17,18 +20,15 @@ export default defineConfig({
       'scripting'
     ],
     host_permissions: ["<all_urls>"],
-    chrome_url_overrides: {
-      newtab: 'newtab.html'
-    },
     background: {
       service_worker: 'background.ts'
+    },
+    action: {
+      default_title: "AI Web Copilot"
+    },
+    side_panel: {
+      default_path: "sidepanel.html"
     }
-    // icons: {
-    //   16: 'public/icons/icon-16.png',
-    //   32: 'public/icons/icon-32.png',
-    //   48: 'public/icons/icon-48.png',
-    //   128: 'public/icons/icon-128.png'
-    // }
   },
   modules: ['@wxt-dev/module-react'],
   srcDir: 'src'
