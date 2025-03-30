@@ -103,7 +103,7 @@ const renderMessageContent = (message: Message) => {
         if (part.type === "page_content") {
           return (
             <div key={index} className="text-xs bg-gray-50 rounded-md p-2 border border-gray-200">
-              <div className="font-medium mb-1">引用页面：{part.page_content?.title}</div>
+              <div className="font-medium mb-1 text-gray-500">引用页面：{part.page_content?.title}</div>
               <a 
                 href={part.page_content?.url} 
                 target="_blank" 

@@ -6,7 +6,7 @@ import { useAI } from '../hooks/useAI';
 import type { Message, MessagePart } from '../utils/ai';
 import { getAIConfig, watchAIConfig, updateSelectedProvider, getAllProviders } from '../utils/storage';
 import type { ProviderConfig, SelectedProviderState } from '../utils/storage';
-import { Settings, Send, FileText, History, MessageSquarePlus } from 'lucide-react';
+import { Settings, Send, FileText, History, MessageSquarePlus, Pencil, Eye, X } from 'lucide-react';
 import { pageService } from '../utils/page';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
@@ -56,6 +56,7 @@ const AIChatSidebar: React.FC = () => {
     model: ''
   });
   const [pageMaterial, setPageMaterial] = useState<PageContent | null>(null);
+  const [isEditing, setIsEditing] = useState(false);
   const {
     sendMessage: sendAIMessage,
     getCurrentSession,
@@ -324,8 +325,14 @@ const AIChatSidebar: React.FC = () => {
       // 使用 pageService 从当前标签页读取页面内容
       const pageContent = await pageService.readPageFromTab();
 
-      // 更新页面物料状态
-      setPageMaterial(pageContent);
+      // 更新页面物料状态，保持原有的 PageContent 结构
+      setPageMaterial({
+        url: pageContent.url,
+        title: pageContent.title,
+        content: pageContent.markdown, // 在消息中使用 markdown 内容
+        markdown: pageContent.markdown, // 保持原有的 markdown 字段
+        metadata: pageContent.metadata
+      });
     } catch (error) {
       console.error('读取页面失败:', error);
       setPageMaterial(null);
@@ -487,27 +494,30 @@ const AIChatSidebar: React.FC = () => {
           <div className="mb-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium">页面物料</h3>
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => setPageMaterial(null)}
-                className="h-6 w-6 p-0 hover:bg-gray-200"
-              >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  width="14"
-                  height="14"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
+              <div className="flex gap-1">
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setIsEditing(!isEditing)}
+                  className="h-6 w-6 p-0 hover:bg-gray-200"
+                  title={isEditing ? "预览" : "编辑"}
                 >
-                  <line x1="18" y1="6" x2="6" y2="18" />
-                  <line x1="6" y1="6" x2="18" y2="18" />
-                </svg>
-              </Button>
+                  {isEditing ? (
+                    <Eye className="h-3.5 w-3.5" />
+                  ) : (
+                    <Pencil className="h-3.5 w-3.5" />
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setPageMaterial(null)}
+                  className="h-6 w-6 p-0 hover:bg-gray-200"
+                  title="关闭"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </div>
             <div className="space-y-2">
               <div className="flex items-center text-sm">
@@ -527,9 +537,24 @@ const AIChatSidebar: React.FC = () => {
               </div>
               <div className="text-sm">
                 <div className="font-sm mb-1">内容预览:</div>
-                <p className="text-gray-600 line-clamp-2">
-                  {pageMaterial.content}
-                </p>
+                {isEditing ? (
+                  <Textarea
+                    value={pageMaterial.content}
+                    onChange={(e) => {
+                      setPageMaterial(prev => prev ? {
+                        ...prev,
+                        content: e.target.value,
+                        markdown: e.target.value
+                      } : null);
+                    }}
+                    className="w-full min-h-[100px] max-h-[300px] text-xs resize-y bg-white border-gray-200"
+                    placeholder="编辑页面内容..."
+                  />
+                ) : (
+                  <p className="text-gray-600 text-xs line-clamp-2 overflow-y-auto">
+                    {pageMaterial.content}
+                  </p>
+                )}
               </div>
             </div>
           </div>
