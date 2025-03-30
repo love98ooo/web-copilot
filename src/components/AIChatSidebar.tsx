@@ -360,9 +360,9 @@ const AIChatSidebar: React.FC = () => {
       <MessageList messages={messages} />
 
       {/* 输入区域 */}
-      <div className="p-4 border-t border-gray-200">
+      <div className="p-3 border-t border-gray-200">
         {/* 工具栏 */}
-        <div className="flex items-center gap-2 justify-between mb-2">
+        <div className="flex items-center gap-1.5 justify-between mb-2">
           <div className="max-w-[calc(80%-100px)] w-40">
             {/* {模型选择} */}
             <Select
@@ -370,7 +370,6 @@ const AIChatSidebar: React.FC = () => {
               onValueChange={handleProviderModelChange}
               onOpenChange={(open) => {
                 if (open) {
-                  // 当下拉框打开时，加载所有 provider 的模型列表
                   providers.forEach(provider => {
                     console.debug(provider);
                     loadModels(provider);
@@ -378,7 +377,7 @@ const AIChatSidebar: React.FC = () => {
                 }
               }}
             >
-              <SelectTrigger className="text-xs w-full">
+              <SelectTrigger className="text-sm h-8 w-full">
                 <SelectValue placeholder="选择 Provider 和模型">
                   <span className="inline-block truncate max-w-full">
                   {(() => {
@@ -401,6 +400,7 @@ const AIChatSidebar: React.FC = () => {
                       <SelectItem
                         key={`${provider.id}:${modelId}`}
                         value={`${provider.id}:${modelId}`}
+                        className="text-sm"
                       >
                         {modelId}
                       </SelectItem>
@@ -410,13 +410,13 @@ const AIChatSidebar: React.FC = () => {
               </SelectContent>
             </Select>
           </div>
-          <div className="flex gap-1">
+          <div className="flex gap-1.5">
             {/* {读取页面内容} */}
             <Button
               variant="ghost"
               size="icon"
               onClick={handleReadPage}
-              className="h-9 w-9 shrink-0"
+              className="h-8 w-8 shrink-0"
               title="读取页面内容"
               disabled={isLoading}
             >
@@ -432,7 +432,7 @@ const AIChatSidebar: React.FC = () => {
                 setMessages([]);
                 setCurrentSessionId(undefined);
               }}
-              className="h-9 w-9 shrink-0"
+              className="h-8 w-8 shrink-0"
               title="新会话"
             >
               <MessageSquarePlus className="h-4 w-4" />
@@ -444,7 +444,7 @@ const AIChatSidebar: React.FC = () => {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="h-9 w-9 shrink-0"
+                  className="h-8 w-8 shrink-0"
                   title="历史记录"
                 >
                   <History className="h-4 w-4" />
@@ -452,8 +452,8 @@ const AIChatSidebar: React.FC = () => {
               </DrawerTrigger>
               <DrawerContent className="mx-auto w-full max-w-sm">
                 <DrawerHeader className="pb-0">
-                  <DrawerTitle>历史记录</DrawerTitle>
-                  <DrawerDescription>选择历史记录，切换会话</DrawerDescription>
+                  <DrawerTitle className="text-sm">历史记录</DrawerTitle>
+                  <DrawerDescription className="text-xs">选择历史记录，切换会话</DrawerDescription>
                 </DrawerHeader>
                 <div className="p-0">
                   <ChatHistory
@@ -469,7 +469,7 @@ const AIChatSidebar: React.FC = () => {
               variant="ghost"
               size="icon"
               asChild
-              className="h-9 w-9 shrink-0"
+              className="h-8 w-8 shrink-0"
             >
               <a
                 href="newtab.html"
@@ -484,7 +484,7 @@ const AIChatSidebar: React.FC = () => {
 
         {/* 物料展示区域 */}
         {pageMaterial && (
-          <div className="mb-3 p-3 bg-gray-50 dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700">
+          <div className="mb-2 p-2.5 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium">页面物料</h3>
               <Button
@@ -510,11 +510,11 @@ const AIChatSidebar: React.FC = () => {
               </Button>
             </div>
             <div className="space-y-2">
-              <div className="flex items-center text-xs">
+              <div className="flex items-center text-sm">
                 <span className="font-sm mr-2 min-w-8">标题:</span>
-                <span className="text-gray-600 dark:text-gray-300 truncate">{pageMaterial.title}</span>
+                <span className="text-gray-600 truncate">{pageMaterial.title}</span>
               </div>
-              <div className="flex items-center text-xs">
+              <div className="flex items-center text-sm">
                 <span className="font-sm mr-2 min-w-8">URL:</span>
                 <a
                   href={pageMaterial.url}
@@ -525,9 +525,9 @@ const AIChatSidebar: React.FC = () => {
                   {pageMaterial.url}
                 </a>
               </div>
-              <div className="text-xs">
+              <div className="text-sm">
                 <div className="font-sm mb-1">内容预览:</div>
-                <p className="text-gray-600 dark:text-gray-300 line-clamp-3">
+                <p className="text-gray-600 line-clamp-2">
                   {pageMaterial.content}
                 </p>
               </div>
@@ -537,15 +537,15 @@ const AIChatSidebar: React.FC = () => {
 
         {/* 输入框和发送按钮 */}
         <div className="space-y-2">
-          <div className="border rounded-xl p-3 bg-muted/50">
+          <div className="border rounded-lg p-2.5 bg-muted/50">
             <Textarea
               value={inputValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyPress}
               placeholder="按 Enter 发送，Shift + Enter 换行"
               disabled={isLoading}
-              className="w-full min-h-[88px] max-h-32 resize-none border-0 bg-transparent p-0 focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
-              rows={3}
+              className="w-full min-h-[72px] max-h-28 resize-none border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
+              rows={2}
             />
             <div className="flex justify-end mt-2">
               <Button
@@ -553,9 +553,9 @@ const AIChatSidebar: React.FC = () => {
                 disabled={isLoading || !inputValue.trim()}
                 variant="ghost"
                 size="sm"
-                className="h-8 px-0 hover:bg-transparent"
+                className="h-7 px-0 hover:bg-transparent"
               >
-                <Send className={`h-5 w-5 ${isLoading ? 'text-muted-foreground animate-pulse' : 'text-primary'}`} />
+                <Send className={`h-4 w-4 ${isLoading ? 'text-muted-foreground animate-pulse' : 'text-primary'}`} />
               </Button>
             </div>
           </div>

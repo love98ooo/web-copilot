@@ -10,21 +10,13 @@ const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
   const language = match ? match[1] : "";
 
   return !inline ? (
-    <pre
-      className={`${className} rounded-md bg-gray-50 p-4 my-2 overflow-x-auto border border-gray-200 dark:border-gray-700`}
-    >
-      <code
-        className={`${language ? `language-${language}` : ""} text-sm`}
-        {...props}
-      >
+    <pre className={`${className} rounded-md bg-gray-50 p-3 my-1.5 overflow-x-auto border border-gray-200`}>
+      <code className={`${language ? `language-${language}` : ""} text-xs`} {...props}>
         {children}
       </code>
     </pre>
   ) : (
-    <code
-      className="rounded bg-gray-50 dark:bg-gray-900 px-1.5 py-0.5 text-sm font-mono border border-gray-200 dark:border-gray-700"
-      {...props}
-    >
+    <code className="rounded bg-gray-50 px-1 py-0.5 text-xs font-mono border border-gray-200" {...props}>
       {children}
     </code>
   );
@@ -38,17 +30,17 @@ interface MessageListProps {
 const renderMessageContent = (message: Message) => {
   if (typeof message.content === "string") {
     return message.isUser ? (
-      <p className="break-words whitespace-pre-wrap text-sm leading-relaxed">
+      <p className="break-words whitespace-pre-wrap text-xs leading-relaxed">
         {message.content}
       </p>
     ) : (
-      <div className="markdown-content break-words prose dark:prose-invert prose-sm max-w-none">
+      <div className="markdown-content break-words prose prose-xs max-w-none">
         <ReactMarkdown
           remarkPlugins={[remarkGfm]}
           components={{
             code: CodeBlock,
             p: ({ children }) => (
-              <p className="text-sm leading-relaxed mb-3 last:mb-0">
+              <p className="text-xs leading-relaxed mb-2 last:mb-0">
                 {children}
               </p>
             ),
@@ -57,21 +49,39 @@ const renderMessageContent = (message: Message) => {
                 href={href}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 dark:text-blue-400 hover:underline inline-flex items-center gap-0.5"
+                className="text-blue-600 hover:underline inline-flex items-center gap-0.5 text-xs"
                 {...props}
               >
                 {children}
               </a>
             ),
             ul: ({ children }) => (
-              <ul className="list-disc pl-4 mb-3 last:mb-0">{children}</ul>
+              <ul className="list-disc pl-3 mb-2 last:mb-0 text-xs">{children}</ul>
             ),
             ol: ({ children }) => (
-              <ol className="list-decimal pl-4 mb-3 last:mb-0">{children}</ol>
+              <ol className="list-decimal pl-3 mb-2 last:mb-0 text-xs">{children}</ol>
             ),
             li: ({ children }) => (
-              <li className="text-sm mb-1 last:mb-0">{children}</li>
+              <li className="text-xs mb-0.5 last:mb-0">{children}</li>
             ),
+            blockquote: ({ children }) => (
+              <blockquote className="border-l-2 border-gray-200 pl-3 italic my-2 text-gray-700 text-xs">
+                {children}
+              </blockquote>
+            ),
+            table: ({ children }) => (
+              <div className="overflow-x-auto my-2">
+                <table className="min-w-full divide-y divide-gray-200 text-xs">
+                  {children}
+                </table>
+              </div>
+            ),
+            th: ({ children }) => (
+              <th className="px-2 py-1.5 text-left text-xs font-semibold bg-gray-50">{children}</th>
+            ),
+            td: ({ children }) => (
+              <td className="px-2 py-1.5 text-xs border-t border-gray-200">{children}</td>
+            )
           }}
         >
           {message.content}
@@ -81,36 +91,24 @@ const renderMessageContent = (message: Message) => {
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-2">
       {message.content.map((part, index) => {
         if (part.type === "text") {
           return (
-            <p
-              key={index}
-              className="break-words whitespace-pre-wrap text-sm leading-relaxed"
-            >
+            <p key={index} className="break-words whitespace-pre-wrap text-xs leading-relaxed">
               {part.text}
             </p>
           );
         }
         if (part.type === "page_content") {
           return (
-            <div
-              key={index}
-              className="text-sm bg-gray-50 dark:bg-gray-900 rounded-md p-3 border border-gray-200 dark:border-gray-700"
-            >
-              <div className="flex items-center mb-1.5 text-gray-500 dark:text-gray-300">
-                <BookOpen className="h-4 w-4 mr-1.5" />
-                <span className="text-xs truncate w-full">
-                  {part.page_content?.title}
-                </span>
-              </div>
-              <a
-                href={part.page_content?.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-blue-500 dark:text-blue-300 hover:text-blue-700 dark:hover:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-900/30 transition-colors py-1 rounded-md block truncate text-xs"
-                title={part.page_content?.url}
+            <div key={index} className="text-xs bg-gray-50 rounded-md p-2 border border-gray-200">
+              <div className="font-medium mb-1">引用页面：{part.page_content?.title}</div>
+              <a 
+                href={part.page_content?.url} 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                className="text-blue-600 hover:underline block truncate"
               >
                 {part.page_content?.url}
               </a>
@@ -176,7 +174,7 @@ const MessageList = memo(({ messages }: MessageListProps) => {
   return (
     <div 
       ref={containerRef}
-      className="flex-1 overflow-y-auto p-4 space-y-6"
+      className="flex-1 overflow-y-auto p-3 space-y-4"
     >
       {messages.map((message) => (
         <div
@@ -184,11 +182,11 @@ const MessageList = memo(({ messages }: MessageListProps) => {
           className={`flex ${message.isUser ? "justify-end" : "justify-start"}`}
         >
           <div
-            className={`relative max-w-[85%] px-4 py-3 rounded-2xl shadow-sm
+            className={`relative max-w-[85%] px-3 py-2 rounded-xl shadow-sm
               ${
                 message.isUser
-                  ? "bg-blue-600 text-white after:absolute after:right-0 after:top-[50%] after:translate-x-[50%] after:translate-y-[-50%] after:border-8 after:border-transparent after:border-l-blue-600"
-                  : "bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 after:absolute after:left-0 after:top-[50%] after:translate-x-[-50%] after:translate-y-[-50%] after:border-8 after:border-transparent after:border-r-white dark:after:border-r-gray-800"
+                  ? "bg-blue-600 text-white after:absolute after:right-0 after:top-[50%] after:translate-x-[50%] after:translate-y-[-50%] after:border-6 after:border-transparent after:border-l-blue-600"
+                  : "bg-white text-gray-900 after:absolute after:left-0 after:top-[50%] after:translate-x-[-50%] after:translate-y-[-50%] after:border-6 after:border-transparent after:border-r-white"
               } ${message?.pending ? "animate-pulse" : ""}`}
           >
             {renderMessageContent(message)}
