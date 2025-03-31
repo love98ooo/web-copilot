@@ -109,7 +109,7 @@ export class PageService {
               // 检查元素是否为内联元素
               const isInlineElement = (el: Element): boolean => {
                 const inlineElements = [
-                  'SPAN', 'STRONG', 'EM', 'B', 'I', 'A', 'CODE', 
+                  'SPAN', 'STRONG', 'EM', 'B', 'I', 'A', 'CODE',
                   'SUB', 'SUP', 'MARK', 'SMALL', 'DEL', 'INS', 'U'
                 ];
                 return inlineElements.includes(el.tagName);
@@ -158,33 +158,48 @@ export class PageService {
 
                 return content;
               };
-              
+
               // 处理标题
-              if (element.tagName.match(/^H[1-6]$/) || 
-                  (element.tagName === 'DIV' && element.getAttribute('data-block-type')?.startsWith('heading'))) {
+              if (element.tagName.match(/^H[1-6]$/) ||
+                  (element.tagName === 'DIV' && (
+                    element.getAttribute('data-block-type')?.startsWith('heading') ||
+                    element.getAttribute('data-type')?.match(/^h[1-6]$/i)
+                  ))) {
                 let level: number;
-                
+
                 if (element.tagName.match(/^H[1-6]$/)) {
                   // 从标签名获取级别
                   level = parseInt(element.tagName[1]);
                 } else {
-                  // 从 data-block-type 获取级别
+                  // 从 data-block-type 或 data-type 获取级别
                   const blockType = element.getAttribute('data-block-type');
-                  // heading1 -> 1, heading2 -> 2, 等
-                  level = parseInt(blockType?.replace('heading', '') || '1');
+                  const dataType = element.getAttribute('data-type');
+
+                  if (blockType?.startsWith('heading')) {
+                    // heading1 -> 1, heading2 -> 2, 等
+                    level = parseInt(blockType.replace('heading', '') || '1');
+                  } else if (dataType?.match(/^h[1-6]$/i)) {
+                    // h1 -> 1, h2 -> 2, 等
+                    level = parseInt(dataType.substring(1));
+                  } else {
+                    level = 1;
+                  }
                 }
-                
+
                 const text = processInlineContent(element);
                 return '#'.repeat(level) + ' ' + text + '\n\n';
               }
 
               // 处理段落和 div
               if (element.tagName === 'P' || element.tagName === 'DIV') {
-                // 检查是否有特殊的 block type
+                // 检查是否有特殊的 block type 或 data type
                 const blockType = element.getAttribute('data-block-type');
-                if (blockType) {
-                  // 根据不同的 block type 处理
-                  switch (blockType) {
+                const dataType = element.getAttribute('data-type');
+
+                if (blockType || dataType) {
+                  // 根据不同的 block type 或 data type 处理
+                  const type = blockType || dataType;
+                  switch (type) {
                     case 'quote':
                       const content = processBlockContent(element)
                         .split('\n')
@@ -192,27 +207,48 @@ export class PageService {
                         .join('\n');
                       return content + '\n\n';
                     case 'code':
-                      const code = element.textContent?.trim() || '';
-                      return '```\n' + code + '\n```\n\n';
+                      // 如果是结构化的代码块
+                      let codeBlockContent = '';
+                      // 获取所有代码行
+                      const codeLineElements = element.querySelectorAll('[data-type="code-line"]');
+                      codeLineElements.forEach(line => {
+                        // 排除行号和其他非代码内容
+                        Array.from(line.childNodes).forEach(child => {
+                          if (child instanceof Element) {
+                            // 只处理不是行号的内容
+                            if (!child.hasAttribute('contenteditable') || child.getAttribute('contenteditable') !== 'false') {
+                              codeBlockContent += child.textContent?.trim() || '';
+                            }
+                          } else if (child.nodeType === Node.TEXT_NODE) {
+                            codeBlockContent += child.textContent?.trim() || '';
+                          }
+                        });
+                        codeBlockContent += '\n';
+                      });
+
+                      const language = element.getAttribute('data-language') || '';
+                      return '```' + language + '\n' + codeBlockContent.trim() + '\n```\n\n';
                     case 'bullet-list':
+                    case 'ul':
                       return element.textContent?.split('\n')
                         .filter(line => line.trim())
                         .map(line => '- ' + line.trim())
                         .join('\n') + '\n\n';
                     case 'numbered-list':
+                    case 'ol':
                       return element.textContent?.split('\n')
                         .filter(line => line.trim())
                         .map((line, index) => `${index + 1}. ${line.trim()}`)
                         .join('\n') + '\n\n';
                     default:
-                      // 如果是未知的 block type，按普通段落处理
+                      // 如果是未知的类型，按普通段落处理
                       if (isInline) {
                         return processInlineContent(element);
                       }
                       return processBlockContent(element);
                   }
                 }
-                
+
                 if (isInline) {
                   return processInlineContent(element);
                 }
@@ -222,7 +258,7 @@ export class PageService {
               // 处理内联元素
               if (isInlineElement(element)) {
                 let text = processInlineContent(element);
-                
+
                 // 根据标签添加 Markdown 格式
                 if (element.tagName === 'STRONG' || element.tagName === 'B') {
                   text = `**${text}**`;
@@ -235,7 +271,7 @@ export class PageService {
                 } else if (element.tagName === 'INS' || element.tagName === 'U') {
                   text = '__' + text + '__';
                 }
-                
+
                 return text + (isInline ? '' : '\n');
               }
 
@@ -286,7 +322,7 @@ export class PageService {
               if (element.tagName === 'TABLE') {
                 let tableMarkdown = '';
                 const rows = element.querySelectorAll('tr');
-                
+
                 // 处理表头
                 const headers = Array.from(rows[0]?.querySelectorAll('th') || [])
                   .map(th => processInlineContent(th));
@@ -446,4 +482,4 @@ export class PageService {
   }
 }
 
-export const pageService = PageService.getInstance(); 
+export const pageService = PageService.getInstance();
