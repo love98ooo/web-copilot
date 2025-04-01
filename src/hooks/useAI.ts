@@ -1,15 +1,24 @@
-import { AIService } from '../utils/ai';
+import { AIService, type AIConfig, type MessagePart } from '../utils/ai';
+import { useCallback } from 'react';
 
 export function useAI() {
   const aiService = AIService.getInstance();
 
-  return {
-    sendMessage: (
+  const sendMessage = useCallback(
+    async (
       content: string | MessagePart[],
       providerId: string,
       model: string,
-      onChunk?: (chunk: string) => void
-    ) => aiService.sendMessage(content, providerId, model, onChunk),
+      onChunk?: (chunk: string) => void,
+      config?: AIConfig
+    ) => {
+      return aiService.sendMessage(content, providerId, model, onChunk, config);
+    },
+    []
+  );
+
+  return {
+    sendMessage,
     clearCurrentSession: aiService.clearCurrentSession.bind(aiService),
     clearAllSessions: aiService.clearAllSessions.bind(aiService),
     getCurrentSession: aiService.getCurrentSession.bind(aiService),

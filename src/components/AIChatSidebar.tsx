@@ -22,24 +22,14 @@ import ChatHistory from './ChatHistory';
 import MessageList from './MessageList';
 
 import { chatHistoryService } from '../utils/history';
-
-// 自定义组件，用于渲染代码块
-const CodeBlock = ({ node, inline, className, children, ...props }: any) => {
-  const match = /language-(\w+)/.exec(className || '');
-  const language = match ? match[1] : '';
-
-  return !inline ? (
-    <pre className={`${className} rounded bg-gray-100 dark:bg-gray-800 p-2 overflow-x-auto`}>
-      <code className={language ? `language-${language}` : ''} {...props}>
-        {children}
-      </code>
-    </pre>
-  ) : (
-    <code className="rounded bg-gray-100 dark:bg-gray-800 px-1 py-0.5 text-sm font-mono" {...props}>
-      {children}
-    </code>
-  );
-};
+import {
+  Popover,
+  PopoverContent,
+  PopoverTrigger,
+} from "@/components/ui/popover";
+import { Settings2 } from 'lucide-react';
+import type { AIConfig } from '../utils/ai';
+import AIConfigSettings from './AIConfigSettings';
 
 interface ProviderModels {
   [key: string]: string[];  // key 是 provider 的 id
@@ -65,6 +55,13 @@ const AIChatSidebar: React.FC = () => {
   } = useAI();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
   const [currentSessionId, setCurrentSessionId] = useState<string | undefined>();
+  const [aiConfig, setAIConfig] = useState<AIConfig>({
+    systemPrompt: undefined,
+    temperature: 0.7,
+    presencePenalty: 0,
+    frequencyPenalty: 0,
+    maxTokens: 2000
+  });
 
   // 使用 useCallback 包装加载消息的函数
   const loadMessages = useCallback(() => {
@@ -225,7 +222,8 @@ const AIChatSidebar: React.FC = () => {
             }
             return prev;
           });
-        }
+        },
+        aiConfig  // 添加 AI 配置
       );
 
       // 如果流式响应失败，使用完整响应更新
@@ -254,63 +252,6 @@ const AIChatSidebar: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  // 渲染消息内容
-  const renderMessageContent = (message: Message) => {
-    console.debug(message);
-    if (typeof message.content === 'string') {
-      return message.isUser ? (
-        <p className="break-words whitespace-pre-wrap text-sm">{message.content}</p>
-      ) : (
-        <div className="markdown-content break-words">
-          <ReactMarkdown
-            remarkPlugins={[remarkGfm]}
-            components={{
-              code: CodeBlock,
-              a: ({ node, children, href, ...props }) => (
-                <a
-                  href={href}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-blue-600 hover:underline"
-                  {...props}
-                >
-                  {children}
-                </a>
-              )
-            }}
-          >
-            {message.content}
-          </ReactMarkdown>
-        </div>
-      );
-    }
-
-    return (
-      <div className="space-y-2">
-        {message.content.map((part, index) => {
-          if (part.type === 'text') {
-            return (
-              <p key={index} className="break-words whitespace-pre-wrap text-sm">
-                {part.text}
-              </p>
-            );
-          }
-          if (part.type === 'page_content') {
-            return (
-              <div key={index} className="text-xs text-gray-500 dark:text-gray-400 bg-gray-100 dark:bg-gray-800 rounded p-2">
-                <div className="font-medium">引用页面：{part.page_content?.title}</div>
-                <a href={part.page_content?.url} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline block truncate">
-                  {part.page_content?.url}
-                </a>
-              </div>
-            );
-          }
-          return null;
-        })}
-      </div>
-    );
   };
 
   const getSelectedValue = () => {
@@ -360,6 +301,28 @@ const AIChatSidebar: React.FC = () => {
       setIsHistoryOpen(false);
     }
   };
+
+  // 渲染 AI 参数设置面板
+  const renderAISettings = () => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-8 w-8 shrink-0"
+          title="AI 参数设置"
+        >
+          <Settings2 className="h-4 w-4" />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent className="w-80">
+        <AIConfigSettings
+          config={aiConfig}
+          onChange={setAIConfig}
+        />
+      </PopoverContent>
+    </Popover>
+  );
 
   return (
     <div className="flex flex-col h-screen bg-white">
@@ -457,19 +420,25 @@ const AIChatSidebar: React.FC = () => {
                   <History className="h-4 w-4" />
                 </Button>
               </DrawerTrigger>
-              <DrawerContent className="mx-auto w-full max-w-sm">
-                <DrawerHeader className="pb-0">
+              <DrawerContent className="mx-auto w-full max-w-sm h-[95vh] flex flex-col">
+                <DrawerHeader className="pb-4 flex-none relative z-10">
                   <DrawerTitle className="text-sm">历史记录</DrawerTitle>
                   <DrawerDescription className="text-xs">选择历史记录，切换会话</DrawerDescription>
+                  <div className="absolute -bottom-4 left-0 right-0 h-8 bg-gradient-to-b from-background via-background/80 to-transparent pointer-events-none"></div>
                 </DrawerHeader>
-                <div className="p-0">
-                  <ChatHistory
-                    onSelect={handleSelectSession}
-                    currentSessionId={currentSessionId}
-                  />
+                <div className="flex-1 overflow-y-auto -mt-4 relative">
+                  <div className="absolute inset-0 pt-6">
+                    <ChatHistory
+                      onSelect={handleSelectSession}
+                      currentSessionId={currentSessionId}
+                    />
+                  </div>
                 </div>
               </DrawerContent>
             </Drawer>
+
+            {/* AI 参数设置 */}
+            {renderAISettings()}
 
             {/* {设置} */}
             <Button

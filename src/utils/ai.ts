@@ -28,6 +28,14 @@ export interface MessagePart {
   };
 }
 
+export interface AIConfig {
+  systemPrompt?: string;
+  temperature?: number;
+  presencePenalty?: number;
+  frequencyPenalty?: number;
+  maxTokens?: number;
+}
+
 export interface Message {
   id: string;
   content: string | MessagePart[];
@@ -150,13 +158,43 @@ export class AIService {
     content: string | MessagePart[],
     providerId: string,
     model: string,
-    onChunk?: (chunk: string) => void
+    onChunk?: (chunk: string) => void,
+    config?: AIConfig
   ): Promise<Message> {
     try {
       const provider = await getProvider(providerId);
       if (!provider) {
         throw new Error("Provider not found");
       }
+
+      // 使用默认配置
+      const defaultConfig: AIConfig = {
+        systemPrompt: `你是一个专业的 AI 助手，专注于提供准确、有见地的回答。你的特点是：
+
+1. 专业性：提供准确、最新的专业知识
+2. 清晰性：回答条理分明，逻辑清晰
+3. 实用性：注重实际应用，提供可操作的建议
+4. 友好性：使用友善、专业的语气
+5. 谨慎性：在不确定时会明确指出，避免误导
+
+我会根据上下文调整回答的深度和专业程度，确保信息既专业又容易理解。`,
+        temperature: 0.7,
+        presencePenalty: 0,
+        frequencyPenalty: 0,
+        maxTokens: 2000
+      };
+
+      console.debug("user config", config);
+
+      // 合并配置,过滤掉 undefined 值
+      const finalConfig = {
+        ...defaultConfig,
+        ...(config && Object.fromEntries(
+          Object.entries(config).filter(([_, value]) => value !== undefined)
+        ))
+      };
+
+      console.debug("final config", finalConfig);
 
       // 如果没有当前会话，创建新会话
       if (!this.currentSession) {
@@ -206,52 +244,40 @@ export class AIService {
       if (provider.type === "openai") {
         const openai = this.getOpenAIClient(provider);
         const stream = await openai.chat.completions.create({
-          messages: this.currentSession.messages.map((msg) => {
-            if (Array.isArray(msg.content)) {
-              return {
-                role: msg.isUser ? "user" : "assistant",
-                content: msg.content
+          messages: [
+            {
+              role: "system" as const,
+              content: finalConfig.systemPrompt || ""
+            },
+            ...this.currentSession.messages.map((msg) => {
+              const role = msg.isUser ? "user" as const : "assistant" as const;
+              if (Array.isArray(msg.content)) {
+                const content = msg.content
                   .map((part) => {
                     if (part.type === "text") {
-                      return {
-                        type: "text",
-                        text: part.text || "",
-                      } as const;
+                      return part.text || "";
                     } else if (part.type === "page_content") {
-                      return {
-                        type: "text",
-                        text: `参考页面信息：
+                      return `参考页面信息：
 标题: ${part.page_content?.title}
 URL: ${part.page_content?.url}
 内容: ${part.page_content?.content}
-${
-  part.page_content?.metadata?.description
-    ? `描述: ${part.page_content.metadata.description}`
-    : ""
-}
-${
-  part.page_content?.metadata?.keywords
-    ? `关键词: ${part.page_content.metadata.keywords.join(", ")}`
-    : ""
-}`,
-                      } as const;
+${part.page_content?.metadata?.description ? `描述: ${part.page_content.metadata.description}` : ""}
+${part.page_content?.metadata?.keywords ? `关键词: ${part.page_content.metadata.keywords.join(", ")}` : ""}`;
                     }
-                    return null;
+                    return "";
                   })
-                  .filter(
-                    (part): part is { type: "text"; text: string } =>
-                      part !== null
-                  ),
-              };
-            }
-            return {
-              role: msg.isUser ? "user" : "assistant",
-              content: msg.content,
-            };
-          }),
+                  .join("\n");
+                return { role, content };
+              }
+              return { role, content: msg.content as string };
+            })
+          ],
           model: model,
           stream: true,
-          temperature: 0.7,
+          temperature: finalConfig.temperature,
+          presence_penalty: finalConfig.presencePenalty,
+          frequency_penalty: finalConfig.frequencyPenalty,
+          max_tokens: finalConfig.maxTokens,
         });
 
         for await (const chunk of stream) {
@@ -263,7 +289,7 @@ ${
         }
       } else if (provider.type === "gemini") {
         const genai = this.getGeminiClient(provider);
-        // 将历史消息转换为 Gemini 格式
+
         const result = await genai.models.generateContentStream({
           model: model,
           contents: this.currentSession.messages.map((msg) => {
@@ -288,14 +314,19 @@ ${
     ? `关键词: ${part.page_content.metadata.keywords.join(", ")}`
     : ""
 }`,
-                    };
-                  }
+                      };
+                    }
                   return null;
-                })
+                  })
                 .filter((part) => part !== null)
             }
             return [{ text: msg.content as string }]
-          })
+          }),
+          config: {
+            temperature: finalConfig.temperature,
+            maxOutputTokens: finalConfig.maxTokens,
+            systemInstruction: finalConfig.systemPrompt
+          }
         });
 
         for await (const chunk of result) {
