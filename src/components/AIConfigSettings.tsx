@@ -11,8 +11,10 @@ interface AIConfigSettingsProps {
 const AIConfigSettings: React.FC<AIConfigSettingsProps> = ({ config, onChange }) => {
   return (
     <div className="space-y-4">
-      <div className="space-y-2">
-        <label className="text-sm font-medium">系统提示词</label>
+      <div>
+        <div className="mb-3">
+          <label className="text-xs font-medium text-muted-foreground">系统提示词</label>
+        </div>
         <Textarea
           value={config.systemPrompt}
           onChange={(e) => onChange({ ...config, systemPrompt: e.target.value })}
@@ -21,8 +23,10 @@ const AIConfigSettings: React.FC<AIConfigSettingsProps> = ({ config, onChange })
         />
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Temperature ({config.temperature})</label>
+      <div>
+        <div className="mb-3">
+          <label className="text-xs font-medium text-muted-foreground">Temperature ({config.temperature})</label>
+        </div>
         <Slider
           value={[config.temperature || 0.7]}
           onValueChange={([value]) => onChange({ ...config, temperature: value })}
@@ -32,8 +36,10 @@ const AIConfigSettings: React.FC<AIConfigSettingsProps> = ({ config, onChange })
         />
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Presence Penalty ({config.presencePenalty})</label>
+      <div>
+        <div className="mb-3">
+          <label className="text-xs font-medium text-muted-foreground">Presence Penalty ({config.presencePenalty})</label>
+        </div>
         <Slider
           value={[config.presencePenalty || 0]}
           onValueChange={([value]) => onChange({ ...config, presencePenalty: value })}
@@ -43,8 +49,10 @@ const AIConfigSettings: React.FC<AIConfigSettingsProps> = ({ config, onChange })
         />
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">Frequency Penalty ({config.frequencyPenalty})</label>
+      <div>
+        <div className="mb-3">
+          <label className="text-xs font-medium text-muted-foreground">Frequency Penalty ({config.frequencyPenalty})</label>
+        </div>
         <Slider
           value={[config.frequencyPenalty || 0]}
           onValueChange={([value]) => onChange({ ...config, frequencyPenalty: value })}
@@ -54,13 +62,15 @@ const AIConfigSettings: React.FC<AIConfigSettingsProps> = ({ config, onChange })
         />
       </div>
 
-      <div className="space-y-2">
-        <label className="text-sm font-medium">最大 Token 数 ({config.maxTokens})</label>
+      <div>
+        <div className="mb-3">
+          <label className="text-xs font-medium text-muted-foreground">最大 Token 数 ({config.maxTokens})</label>
+        </div>
         <Slider
           value={[config.maxTokens || 2000]}
           onValueChange={([value]) => onChange({ ...config, maxTokens: value })}
           min={100}
-          max={4000}
+          max={8000}
           step={100}
         />
       </div>
