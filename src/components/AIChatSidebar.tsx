@@ -40,7 +40,6 @@ const AIChatSidebar: React.FC = () => {
   const [inputValue, setInputValue] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(false);
   const [providers, setProviders] = useState<ProviderConfig[]>([]);
-  const [providerModels, setProviderModels] = useState<ProviderModels>({});
   const [selectedProvider, setSelectedProvider] = useState<SelectedProviderState>({
     providerId: '',
     model: ''
@@ -50,7 +49,6 @@ const AIChatSidebar: React.FC = () => {
   const {
     sendMessage: sendAIMessage,
     getCurrentSession,
-    listModels: listAIModels,
     switchSession
   } = useAI();
   const [isHistoryOpen, setIsHistoryOpen] = useState(false);
@@ -90,36 +88,15 @@ const AIChatSidebar: React.FC = () => {
     return () => unwatch();
   }, []); // 移除 loadMessages 依赖
 
-  useEffect(() => {
-    // 当 provider 的配置变化时，加载对应的模型列表
-    providers.forEach(provider => {
-      if (provider.apiKey && (!providerModels[provider.id] || providerModels[provider.id].length === 0)) {
-        loadModels(provider);
-      }
-    });
-  }, [providers]);
-
   const loadConfig = async () => {
     try {
       const config = await getAIConfig();
       const providerList = await getAllProviders();
+      console.debug('providerList:', providerList);
       setProviders(providerList);
       setSelectedProvider(config.selectedProvider);
     } catch (error) {
       console.error('加载配置失败:', error);
-    }
-  };
-
-  const loadModels = async (provider: ProviderConfig) => {
-    try {
-      const modelList = await listAIModels(provider);
-      console.debug(modelList)
-      setProviderModels(prev => ({
-        ...prev,
-        [provider.id]: modelList
-      }));
-    } catch (error) {
-      console.error('加载模型列表失败:', error);
     }
   };
 
@@ -338,12 +315,27 @@ const AIChatSidebar: React.FC = () => {
             <Select
               value={getSelectedValue()}
               onValueChange={handleProviderModelChange}
-              onOpenChange={(open) => {
+              onOpenChange={async (open) => {
                 if (open) {
-                  providers.forEach(provider => {
-                    console.debug(provider);
-                    loadModels(provider);
+                  // 重新获取最新的 providers 列表
+                  const latestProviders = await getAllProviders();
+                  // 检查是否有更新（包括 provider 信息和模型列表）
+                  const hasUpdates = latestProviders.some(latest => {
+                    const current = providers.find(p => p.id === latest.id);
+                    if (!current) return true;
+                    
+                    // 检查 provider 的所有属性是否有变化
+                    return latest.name !== current.name ||
+                           latest.type !== current.type ||
+                           latest.apiKey !== current.apiKey ||
+                           latest.baseUrl !== current.baseUrl ||
+                           JSON.stringify(latest.models) !== JSON.stringify(current.models);
                   });
+                  
+                  if (hasUpdates) {
+                    console.debug('检测到 Provider 或模型列表有更新');
+                    setProviders(latestProviders);
+                  }
                 }
               }}
             >
@@ -366,7 +358,7 @@ const AIChatSidebar: React.FC = () => {
                     <SelectLabel className="px-2 py-1.5 text-xs font-semibold text-muted-foreground">
                       {provider.name}
                     </SelectLabel>
-                    {providerModels[provider.id]?.map((modelId) => (
+                    {provider.models.map((modelId) => (
                       <SelectItem
                         key={`${provider.id}:${modelId}`}
                         value={`${provider.id}:${modelId}`}
