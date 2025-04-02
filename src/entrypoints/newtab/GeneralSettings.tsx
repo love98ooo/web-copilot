@@ -35,6 +35,12 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { useDebounce } from "@/utils/debounce";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
 
 interface ProviderFormState {
   id: string;
@@ -78,9 +84,10 @@ export const GeneralSettings: React.FC = () => {
           models: provider.models,
         });
         toast({
-          variant: "default",
+          variant: "success",
+          title: "成功",
           description: "设置已自动保存",
-          duration: 1000,
+          duration: 2000,
         });
       } catch (error) {
         console.error("保存配置失败:", error);
@@ -194,10 +201,10 @@ export const GeneralSettings: React.FC = () => {
       await addProvider(newProvider);
       await loadConfig();
       toast({
+        variant: "success",
         title: "成功",
         description: "已添加新的 Provider",
         duration: 2000,
-        className: "bg-green-50 border-green-200",
       });
     } catch (error) {
       console.error("添加 Provider 失败:", error);
@@ -215,10 +222,10 @@ export const GeneralSettings: React.FC = () => {
       await removeProvider(id);
       await loadConfig();
       toast({
+        variant: "success",
         title: "成功",
         description: "已删除 Provider",
         duration: 2000,
-        className: "bg-green-50 border-green-200",
       });
     } catch (error) {
       console.error("删除 Provider 失败:", error);
@@ -281,6 +288,51 @@ export const GeneralSettings: React.FC = () => {
     }
   };
 
+  const handleToggleAllModels = async (index: number) => {
+    try {
+      const provider = providers[index];
+      const filteredModels = getFilteredModels(provider);
+
+      // 检查是否所有过滤后的模型都已启用
+      const allEnabled = filteredModels.every(model =>
+        provider.models.includes(model)
+      );
+
+      // 如果全部启用了，则取消所有；否则启用所有
+      let newModels;
+      if (allEnabled) {
+        // 只移除当前过滤出的模型
+        newModels = provider.models.filter(
+          model => !filteredModels.includes(model)
+        );
+      } else {
+        // 将过滤出的模型添加到已有的模型中（使用Set去重）
+        const modelSet = new Set([...provider.models, ...filteredModels]);
+        newModels = Array.from(modelSet);
+      }
+
+      // 更新本地状态
+      const newProviders = [...providers];
+      const updatedProvider = { ...provider, models: newModels };
+      newProviders[index] = updatedProvider;
+      setProviders(newProviders);
+
+      // 触发自动保存
+      handleAutoSave(updatedProvider);
+    } catch (error) {
+      console.error("批量更新模型设置失败:", error);
+      toast({
+        variant: "destructive",
+        title: "错误",
+        description: "批量更新模型设置失败",
+        duration: 3000,
+      });
+
+      // 如果保存失败，回滚本地状态
+      await loadConfig();
+    }
+  };
+
   const handleModelFilterChange = (index: number, value: string) => {
     const newProviders = [...providers];
     newProviders[index] = {
@@ -322,11 +374,10 @@ export const GeneralSettings: React.FC = () => {
   };
 
   return (
-    <div className="max-w-4xl space-y-8">
-      <div className="flex justify-between items-center">
+    <div className="space-y-8">
+      <div>
         <h1 className="text-2xl font-bold">常规设置</h1>
       </div>
-
       <div className="space-y-8">
         <div>
           <div className="flex justify-between items-center mb-4">
@@ -339,19 +390,52 @@ export const GeneralSettings: React.FC = () => {
 
           <div className="space-y-6">
             {providers.map((provider, index) => (
-              <div key={provider.id} className="p-4 border rounded-lg space-y-4">
-                <div className="flex justify-between items-center">
-                  <div className="flex items-center gap-2">
-                    <Input
-                      value={provider.name}
-                      onChange={(e) =>
-                        handleProviderChange(index, "name", e.target.value)
-                      }
-                      placeholder="Provider 名称"
-                      className="w-40"
-                    />
-                  </div>
-                  <div className="flex items-center gap-2">
+              <Card key={provider.id} className="border rounded-lg gap-3">
+                <CardHeader>
+                  <div className="flex justify-between items-center">
+                    <div className="flex items-center group relative">
+                      <CardTitle
+                        className="text-lg font-medium text-blue-600 cursor-pointer hover:text-blue-700 group-hover:underline"
+                        onClick={() => {
+                          const textInput = document.getElementById(`provider-name-text-${provider.id}`);
+                          const titleEl = document.getElementById(`provider-name-title-${provider.id}`);
+                          if (textInput && titleEl) {
+                            titleEl.classList.add('hidden');
+                            textInput.classList.remove('hidden');
+                            (textInput as HTMLInputElement).focus();
+                          }
+                        }}
+                        id={`provider-name-title-${provider.id}`}
+                        title="点击编辑名称"
+                      >
+                        {provider.name || "未命名Provider"}
+                      </CardTitle>
+                      <Input
+                        id={`provider-name-text-${provider.id}`}
+                        value={provider.name}
+                        onChange={(e) => handleProviderChange(index, "name", e.target.value)}
+                        onBlur={(e) => {
+                          const textInput = document.getElementById(`provider-name-text-${provider.id}`);
+                          const titleEl = document.getElementById(`provider-name-title-${provider.id}`);
+                          if (textInput && titleEl) {
+                            textInput.classList.add('hidden');
+                            titleEl.classList.remove('hidden');
+                          }
+                        }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter') {
+                            const textInput = document.getElementById(`provider-name-text-${provider.id}`);
+                            const titleEl = document.getElementById(`provider-name-title-${provider.id}`);
+                            if (textInput && titleEl) {
+                              textInput.classList.add('hidden');
+                              titleEl.classList.remove('hidden');
+                            }
+                          }
+                        }}
+                        className="hidden w-64 h-8 -ml-1"
+                        placeholder="输入Provider名称"
+                      />
+                    </div>
                     {providers.length > 1 && (
                       <Button
                         onClick={() => handleRemoveProvider(provider.id)}
@@ -363,173 +447,209 @@ export const GeneralSettings: React.FC = () => {
                       </Button>
                     )}
                   </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    SDK 类型
-                  </label>
-                  <Select
-                    value={provider.type}
-                    onValueChange={(value) =>
-                      handleProviderChange(index, "type", value)
-                    }
-                  >
-                    <SelectTrigger>
-                      <SelectValue placeholder="选择 SDK 类型" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {SDK_TYPES.map((type) => (
-                        <SelectItem key={type.value} value={type.value}>
-                          {type.label}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-1">
-                    API Key
-                  </label>
-                  <Input
-                    type="password"
-                    value={provider.apiKey}
-                    onChange={(e) =>
-                      handleProviderChange(index, "apiKey", e.target.value)
-                    }
-                    placeholder="sk-..."
-                  />
-                </div>
-
-                {provider.type === "openai" && (
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1">
-                      API Base URL
-                    </label>
-                    <Input
-                      type="text"
-                      value={provider.baseUrl}
-                      onChange={(e) =>
-                        handleProviderChange(index, "baseUrl", e.target.value)
-                      }
-                      placeholder="https://api.openai.com/v1"
-                    />
-                    <p className="mt-1 text-sm text-gray-500">
-                      如果使用代理服务，请在此设置代理地址
-                    </p>
-                  </div>
-                )}
-
-                <Accordion type="single" collapsible className="w-full">
-                  <AccordionItem value="models">
-                    <AccordionTrigger
-                      className="py-3"
-                      onClick={() => {
-                        if (!provider.availableModels) {
-                          handleRefreshModels(index);
+                </CardHeader>
+                <CardContent className="space-y-4">
+                  <div className="flex flex-wrap gap-4">
+                    <div className="w-[400px]">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        SDK 类型
+                      </label>
+                      <Select
+                        value={provider.type}
+                        onValueChange={(value) =>
+                          handleProviderChange(index, "type", value)
                         }
-                      }}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="选择 SDK 类型" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {SDK_TYPES.map((type) => (
+                            <SelectItem key={type.value} value={type.value}>
+                              {type.label}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
+                    </div>
+
+                    <div className="flex-1 min-w-[280px]">
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        API Key
+                      </label>
+                      <Input
+                        type="password"
+                        value={provider.apiKey}
+                        onChange={(e) =>
+                          handleProviderChange(index, "apiKey", e.target.value)
+                        }
+                        placeholder="sk-..."
+                      />
+                    </div>
+                  </div>
+
+                  {provider.type === "openai" && (
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">
+                        API Base URL
+                      </label>
+                      <Input
+                        type="text"
+                        value={provider.baseUrl}
+                        onChange={(e) =>
+                          handleProviderChange(index, "baseUrl", e.target.value)
+                        }
+                        placeholder="https://api.openai.com/v1"
+                      />
+                      <p className="mt-1 text-sm text-gray-500">
+                        如果使用代理服务，请在此设置代理地址
+                      </p>
+                    </div>
+                  )}
+
+                  <Accordion
+                    type="single"
+                    collapsible
+                    className="w-full"
+                    onValueChange={(value) => {
+                      if (value === "models") {
+                        handleRefreshModels(index);
+                      }
+                    }}
+                  >
+                    <AccordionItem
+                      value="models"
+                      className="border-none"
+                      data-provider-id={provider.id}
                     >
-                      <div className="flex items-center gap-2">
-                        <RefreshCw
-                          className={`h-4 w-4 ${
-                            loadingModels[provider.id] ? "animate-spin" : ""
-                          }`}
-                        />
-                        <span>模型列表管理</span>
-                        {provider.models.length > 0 && (
-                          <span className="ml-2 text-xs text-gray-500">
-                            ({provider.models.length} 个已启用)
-                          </span>
-                        )}
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent>
-                      <div className="pt-4">
-                        {provider.availableModels &&
-                          provider.availableModels.length > 0 && (
-                            <div className="space-y-4">
-                              <div className="relative">
-                                <Input
-                                  value={provider.modelFilter || ""}
-                                  onChange={(e) =>
-                                    handleModelFilterChange(index, e.target.value)
-                                  }
-                                  placeholder="搜索模型..."
-                                  className="pl-8"
-                                />
-                                <Search className="h-4 w-4 absolute left-2.5 top-3 text-gray-500" />
-                              </div>
-                              <div className="flex items-center">
-                                <input
-                                  type="checkbox"
-                                  id={`showEnabled-${provider.id}`}
-                                  checked={provider.showEnabledOnly}
-                                  onChange={(e) =>
-                                    handleShowEnabledOnlyChange(
-                                      index,
-                                      e.target.checked
-                                    )
-                                  }
-                                  className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
-                                />
-                                <label
-                                  htmlFor={`showEnabled-${provider.id}`}
-                                  className="ml-2 text-sm text-gray-600"
-                                >
-                                  只显示已启用的模型
-                                </label>
-                              </div>
-                              <Table>
-                                <TableCaption>选择要启用的模型</TableCaption>
-                                <TableHeader>
-                                  <TableRow>
-                                    <TableHead className="w-[50px]">启用</TableHead>
-                                    <TableHead>模型名称</TableHead>
-                                  </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                  {getFilteredModels(provider).map((model) => (
-                                    <TableRow key={model}>
-                                      <TableCell>
-                                        <Button
-                                          variant="ghost"
-                                          size="sm"
-                                          className={`h-6 w-6 p-0 ${
-                                            provider.models.includes(model)
-                                              ? "text-green-600"
-                                              : "text-gray-300"
-                                          }`}
-                                          onClick={() =>
-                                            handleToggleModel(index, model)
-                                          }
-                                        >
-                                          <Check className="h-4 w-4" />
-                                        </Button>
-                                      </TableCell>
-                                      <TableCell>{model}</TableCell>
-                                    </TableRow>
-                                  ))}
-                                  {getFilteredModels(provider).length === 0 && (
-                                    <TableRow>
-                                      <TableCell
-                                        colSpan={2}
-                                        className="text-center text-gray-500 py-4"
-                                      >
-                                        没有找到匹配的模型
-                                      </TableCell>
-                                    </TableRow>
-                                  )}
-                                </TableBody>
-                              </Table>
-                            </div>
+                      <AccordionTrigger className="py-3 px-0">
+                        <div className="flex items-center gap-2">
+                          <RefreshCw
+                            className={`h-4 w-4 ${
+                              loadingModels[provider.id] ? "animate-spin" : ""
+                            }`}
+                          />
+                          <span>模型列表管理</span>
+                          {provider.models.length > 0 && (
+                            <span className="ml-2 text-xs text-gray-500">
+                              ({provider.models.length} 个已启用)
+                            </span>
                           )}
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                </Accordion>
-              </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent>
+                        <div className="pt-1">
+                          {provider.availableModels &&
+                            provider.availableModels.length > 0 && (
+                              <div className="space-y-4">
+                                <div className="relative">
+                                  <Input
+                                    value={provider.modelFilter || ""}
+                                    onChange={(e) =>
+                                      handleModelFilterChange(index, e.target.value)
+                                    }
+                                    placeholder="搜索模型..."
+                                    className="pl-8"
+                                  />
+                                  <Search className="h-4 w-4 absolute left-2.5 top-3 text-gray-500" />
+                                </div>
+                                <div className="flex items-center">
+                                  <input
+                                    type="checkbox"
+                                    id={`showEnabled-${provider.id}`}
+                                    checked={provider.showEnabledOnly}
+                                    onChange={(e) =>
+                                      handleShowEnabledOnlyChange(
+                                        index,
+                                        e.target.checked
+                                      )
+                                    }
+                                    className="h-4 w-4 rounded border-gray-300 text-primary focus:ring-primary"
+                                  />
+                                  <label
+                                    htmlFor={`showEnabled-${provider.id}`}
+                                    className="ml-2 text-sm text-gray-600"
+                                  >
+                                    只显示已启用的模型
+                                  </label>
+                                </div>
+                                <Card className="border-gray-200 py-0">
+                                  <CardContent className="p-0">
+                                    <Table>
+                                      <TableHeader>
+                                        <TableRow>
+                                          <TableHead className="w-[50px]">
+                                            <Button
+                                              variant="ghost"
+                                              size="sm"
+                                              className={`h-6 w-6 p-0 ${
+                                                getFilteredModels(provider).length > 0 &&
+                                                getFilteredModels(provider).every(model =>
+                                                  provider.models.includes(model)
+                                                )
+                                                  ? "text-green-600"
+                                                  : "text-gray-300"
+                                              }`}
+                                              onClick={() => handleToggleAllModels(index)}
+                                              title={
+                                                getFilteredModels(provider).length > 0 &&
+                                                getFilteredModels(provider).every(model =>
+                                                  provider.models.includes(model)
+                                                )
+                                                  ? "取消选择所有模型"
+                                                  : "选择所有模型"
+                                              }
+                                            >
+                                              <Check className="h-4 w-4" />
+                                            </Button>
+                                          </TableHead>
+                                          <TableHead>模型名称</TableHead>
+                                        </TableRow>
+                                      </TableHeader>
+                                      <TableBody>
+                                        {getFilteredModels(provider).map((model) => (
+                                          <TableRow key={model}>
+                                            <TableCell>
+                                              <Button
+                                                variant="ghost"
+                                                size="sm"
+                                                className={`h-6 w-6 p-0 ${
+                                                  provider.models.includes(model)
+                                                    ? "text-green-600"
+                                                    : "text-gray-300"
+                                                }`}
+                                                onClick={() =>
+                                                  handleToggleModel(index, model)
+                                                }
+                                              >
+                                                <Check className="h-4 w-4" />
+                                              </Button>
+                                            </TableCell>
+                                            <TableCell>{model}</TableCell>
+                                          </TableRow>
+                                        ))}
+                                        {getFilteredModels(provider).length === 0 && (
+                                          <TableRow>
+                                            <TableCell
+                                              colSpan={2}
+                                              className="text-center text-gray-500 py-4"
+                                            >
+                                              没有找到匹配的模型
+                                            </TableCell>
+                                          </TableRow>
+                                        )}
+                                      </TableBody>
+                                    </Table>
+                                  </CardContent>
+                                </Card>
+                              </div>
+                            )}
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  </Accordion>
+                </CardContent>
+              </Card>
             ))}
           </div>
         </div>
