@@ -3,7 +3,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGr
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
 import { useAI } from '../hooks/useAI';
-import type { Message, MessagePart } from '../utils/ai';
+import type { Message, MessagePart, AIConfig } from '../utils/ai';
 import { getAIConfig, watchAIConfig, updateSelectedProvider, getAllProviders } from '../utils/storage';
 import type { ProviderConfig, SelectedProviderState } from '../utils/storage';
 import { Settings, Send, FileText, History, MessageSquarePlus, Pencil, Eye, X } from 'lucide-react';
@@ -28,7 +28,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Settings2 } from 'lucide-react';
-import type { AIConfig } from '../utils/ai';
 import AIConfigSettings from './AIConfigSettings';
 
 interface ProviderModels {

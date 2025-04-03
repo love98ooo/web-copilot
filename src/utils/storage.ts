@@ -21,7 +21,7 @@ export interface SelectedProviderState {
 }
 
 // 定义配置项的接口
-export interface AIConfig {
+export interface AIConfigStorage {
   version: number;
   providerList: string[];  // provider id 列表
   selectedProvider: SelectedProviderState;
@@ -85,7 +85,7 @@ const getDefaultProviders = (): [string[], Record<string, ProviderConfig>] => {
 
 // 定义默认配置
 const [defaultProviderList, defaultProviders] = getDefaultProviders();
-const DEFAULT_CONFIG: AIConfig = {
+const DEFAULT_CONFIG: AIConfigStorage = {
   version: 3,
   providerList: defaultProviderList,
   selectedProvider: {
@@ -95,7 +95,7 @@ const DEFAULT_CONFIG: AIConfig = {
 };
 
 // 创建配置存储项
-export const aiConfig = storage.defineItem<AIConfig>('local:ai_config', {
+export const aiConfig = storage.defineItem<AIConfigStorage>('local:ai_config', {
   fallback: DEFAULT_CONFIG,
   version: 3
 });
@@ -113,7 +113,7 @@ export const chatHistories = storage.defineItem<ChatHistories>('local:chat_histo
 });
 
 // 辅助函数：获取配置
-export async function getAIConfig(): Promise<AIConfig> {
+export async function getAIConfig(): Promise<AIConfigStorage> {
   const config = await aiConfig.getValue();
   const storedProviders = await providers.getValue();
 
@@ -249,7 +249,7 @@ export async function resetAIConfig(): Promise<void> {
 }
 
 // 监听配置变化
-export function watchAIConfig(callback: (newConfig: AIConfig, oldConfig: AIConfig | null) => void) {
+export function watchAIConfig(callback: (newConfig: AIConfigStorage, oldConfig: AIConfigStorage | null) => void) {
   return aiConfig.watch(callback);
 }
 
