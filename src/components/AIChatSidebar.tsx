@@ -8,8 +8,6 @@ import { getAIConfig, watchAIConfig, updateSelectedProvider, getAllProviders } f
 import type { ProviderConfig, SelectedProviderState } from '../utils/storage';
 import { Settings, Send, FileText, History, MessageSquarePlus, Pencil, Eye, X } from 'lucide-react';
 import { pageService } from '../utils/page';
-import ReactMarkdown from 'react-markdown';
-import remarkGfm from 'remark-gfm';
 import {
   Drawer,
   DrawerContent,
@@ -29,6 +27,12 @@ import {
 } from "@/components/ui/popover";
 import { Settings2 } from 'lucide-react';
 import AIConfigSettings from './AIConfigSettings';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 interface ProviderModels {
   [key: string]: string[];  // key 是 provider 的 id
@@ -278,30 +282,35 @@ const AIChatSidebar: React.FC = () => {
     }
   };
 
-  // 渲染 AI 参数设置面板
-  const renderAISettings = () => (
-    <Popover>
-      <PopoverTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon"
-          className="h-8 w-8 shrink-0"
-          title="AI 参数设置"
-        >
-          <Settings2 className="h-4 w-4" />
-        </Button>
-      </PopoverTrigger>
-      <PopoverContent className="w-80">
-        <AIConfigSettings
-          config={aiConfig}
-          onChange={setAIConfig}
-        />
-      </PopoverContent>
-    </Popover>
-  );
-
   return (
-    <div className="flex flex-col h-screen bg-white">
+    <div className="flex flex-col h-screen bg-white relative">
+      {/* 设置按钮 - 左上角悬浮 */}
+      <div className="absolute top-3 left-3 z-10">
+        <TooltipProvider>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                asChild
+                className="h-8 w-8 shrink-0 hover:bg-gray-100 rounded-full group"
+              >
+                <a
+                  href="newtab.html"
+                  target="_blank"
+                  className="flex items-center justify-center"
+                >
+                  <Settings className="h-4 w-4 transition-transform duration-300 group-hover:rotate-180" />
+                </a>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>
+              <p>设置</p>
+            </TooltipContent>
+          </Tooltip>
+        </TooltipProvider>
+      </div>
+
       {/* 消息列表 */}
       <MessageList messages={messages} />
 
@@ -373,44 +382,69 @@ const AIChatSidebar: React.FC = () => {
           </div>
           <div className="flex gap-1.5">
             {/* {读取页面内容} */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={handleReadPage}
-              className="h-8 w-8 shrink-0"
-              title="读取页面内容"
-              disabled={isLoading}
-            >
-              <FileText className="h-4 w-4" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={handleReadPage}
+                    className="h-8 w-8 shrink-0 group hover:bg-gray-100 rounded-lg"
+                    disabled={isLoading}
+                  >
+                    <FileText className="h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-primary" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>读取页面内容</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* 新会话 */}
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => {
-                switchSession(undefined);
-                setMessages([]);
-                setCurrentSessionId(undefined);
-              }}
-              className="h-8 w-8 shrink-0"
-              title="新会话"
-            >
-              <MessageSquarePlus className="h-4 w-4" />
-            </Button>
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => {
+                      switchSession(undefined);
+                      setMessages([]);
+                      setCurrentSessionId(undefined);
+                    }}
+                    className="h-8 w-8 shrink-0 group hover:bg-gray-100 rounded-lg"
+                  >
+                    <MessageSquarePlus className="h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-primary" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>新会话</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
 
             {/* 历史记录 */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-8 w-8 shrink-0 group hover:bg-gray-100 rounded-lg"
+                    onClick={() => setIsHistoryOpen(true)}
+                  >
+                    <History className="h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-primary" />
+                  </Button>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p>历史记录</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* Drawer for History */}
             <Drawer open={isHistoryOpen} onOpenChange={setIsHistoryOpen}>
-              <DrawerTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 shrink-0"
-                  title="历史记录"
-                >
-                  <History className="h-4 w-4" />
-                </Button>
-              </DrawerTrigger>
               <DrawerContent className="mx-auto w-full max-w-sm h-[95vh] flex flex-col">
                 <DrawerHeader className="pb-4 flex-none relative z-10">
                   <DrawerTitle className="text-sm">历史记录</DrawerTitle>
@@ -429,23 +463,32 @@ const AIChatSidebar: React.FC = () => {
             </Drawer>
 
             {/* AI 参数设置 */}
-            {renderAISettings()}
-
-            {/* {设置} */}
-            <Button
-              variant="ghost"
-              size="icon"
-              asChild
-              className="h-8 w-8 shrink-0"
-            >
-              <a
-                href="newtab.html"
-                target="_blank"
-                title="设置"
-              >
-                <Settings className="h-4 w-4" />
-              </a>
-            </Button>
+            <Popover>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <PopoverTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 shrink-0 group hover:bg-gray-100 rounded-lg"
+                      >
+                        <Settings2 className="h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:text-primary" />
+                      </Button>
+                    </PopoverTrigger>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>AI 参数设置</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
+              <PopoverContent className="w-80">
+                <AIConfigSettings
+                  config={aiConfig}
+                  onChange={setAIConfig}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
 
@@ -455,28 +498,45 @@ const AIChatSidebar: React.FC = () => {
             <div className="flex items-center justify-between mb-2">
               <h3 className="text-sm font-medium">页面物料</h3>
               <div className="flex gap-1">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setIsEditing(!isEditing)}
-                  className="h-6 w-6 p-0 hover:bg-gray-200"
-                  title={isEditing ? "预览" : "编辑"}
-                >
-                  {isEditing ? (
-                    <Eye className="h-3.5 w-3.5" />
-                  ) : (
-                    <Pencil className="h-3.5 w-3.5" />
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setPageMaterial(null)}
-                  className="h-6 w-6 p-0 hover:bg-gray-200"
-                  title="关闭"
-                >
-                  <X className="h-3.5 w-3.5" />
-                </Button>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setIsEditing(!isEditing)}
+                        className="h-6 w-6 p-0 hover:bg-gray-200 rounded-md group"
+                      >
+                        {isEditing ? (
+                          <Eye className="h-3.5 w-3.5 transition-all duration-200 group-hover:scale-110 group-hover:text-primary" />
+                        ) : (
+                          <Pencil className="h-3.5 w-3.5 transition-all duration-200 group-hover:scale-110 group-hover:text-primary" />
+                        )}
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>{isEditing ? "预览" : "编辑"}</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => setPageMaterial(null)}
+                        className="h-6 w-6 p-0 hover:bg-gray-200 rounded-md group"
+                      >
+                        <X className="h-3.5 w-3.5 transition-all duration-200 group-hover:scale-110 group-hover:text-primary" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>关闭</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             </div>
             <div className="space-y-2">
@@ -533,15 +593,24 @@ const AIChatSidebar: React.FC = () => {
               rows={2}
             />
             <div className="flex justify-end mt-2">
-              <Button
-                onClick={handleSendMessage}
-                disabled={isLoading || !inputValue.trim()}
-                variant="ghost"
-                size="sm"
-                className="h-7 px-0 hover:bg-transparent"
-              >
-                <Send className={`h-4 w-4 ${isLoading ? 'text-muted-foreground animate-pulse' : 'text-primary'}`} />
-              </Button>
+              <TooltipProvider>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Button
+                      onClick={handleSendMessage}
+                      disabled={isLoading || !inputValue.trim()}
+                      variant="ghost"
+                      size="sm"
+                      className="h-7 px-0 hover:bg-transparent group"
+                    >
+                      <Send className={`h-4 w-4 transition-all duration-200 group-hover:scale-110 group-hover:translate-x-0.5 ${isLoading ? 'text-muted-foreground animate-pulse' : 'text-primary'}`} />
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent>
+                    <p>发送消息</p>
+                  </TooltipContent>
+                </Tooltip>
+              </TooltipProvider>
             </div>
           </div>
         </div>
