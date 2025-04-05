@@ -2,12 +2,12 @@ import React, { useState, KeyboardEvent, ChangeEvent, useEffect, useCallback } f
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
-import { useAI } from '../hooks/useAI';
-import type { Message, MessagePart, AIConfig } from '../utils/ai';
-import { getAIConfig, watchAIConfig, updateSelectedProvider, getAllProviders } from '../utils/storage';
-import type { ProviderConfig, SelectedProviderState } from '../utils/storage';
+import { useAI } from '../../hooks/use-ai';
+import type { Message, MessagePart, AIConfig } from '../../utils/ai';
+import { getAIConfig, watchAIConfig, updateSelectedProvider, getAllProviders } from '../../utils/storage';
+import type { ProviderConfig, SelectedProviderState } from '../../utils/storage';
 import { Settings, Send, FileText, History, MessageSquarePlus, Pencil, Eye, X } from 'lucide-react';
-import { pageService } from '../utils/page';
+import { pageService } from '../../utils/page';
 import {
   Drawer,
   DrawerContent,
@@ -16,17 +16,17 @@ import {
   DrawerTitle,
   DrawerTrigger,
 } from '@/components/ui/drawer';
-import ChatHistory from './ChatHistory';
-import MessageList from './MessageList';
+import ChatHistory from '../../components/ChatHistory';
+import MessageList from '../../components/MessageList';
 
-import { chatHistoryService } from '../utils/history';
+import { chatHistoryService } from '../../utils/history';
 import {
   Popover,
   PopoverContent,
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Settings2 } from 'lucide-react';
-import AIConfigSettings from './AIConfigSettings';
+import AIConfigSettings from '../../components/AIConfigSettings';
 import {
   Tooltip,
   TooltipContent,
@@ -296,7 +296,7 @@ const AIChatSidebar: React.FC = () => {
                 className="h-8 w-8 shrink-0 hover:bg-gray-100 rounded-full group"
               >
                 <a
-                  href="newtab.html"
+                  href="settings.html"
                   target="_blank"
                   className="flex items-center justify-center"
                 >
@@ -331,7 +331,7 @@ const AIChatSidebar: React.FC = () => {
                   const hasUpdates = latestProviders.some(latest => {
                     const current = providers.find(p => p.id === latest.id);
                     if (!current) return true;
-                    
+
                     // 检查 provider 的所有属性是否有变化
                     return latest.name !== current.name ||
                            latest.type !== current.type ||
@@ -339,7 +339,7 @@ const AIChatSidebar: React.FC = () => {
                            latest.baseUrl !== current.baseUrl ||
                            JSON.stringify(latest.models) !== JSON.stringify(current.models);
                   });
-                  
+
                   if (hasUpdates) {
                     console.debug('检测到 Provider 或模型列表有更新');
                     setProviders(latestProviders);

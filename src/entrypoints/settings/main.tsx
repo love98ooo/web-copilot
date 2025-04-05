@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import { SettingsPage } from './SettingsPage';
+import { SettingsPage } from '@/pages/settings/SettingsPage';
 import '@/index.css';
 
 const container = document.getElementById('app');

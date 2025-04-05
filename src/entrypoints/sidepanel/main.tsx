@@ -1,6 +1,6 @@
 import React from 'react';
 import { createRoot } from 'react-dom/client';
-import AIChatSidebar from '@/components/AIChatSidebar';
+import AIChatSidebar from '@/pages/sidebar/AIChatSidebar';
 import '@/index.css';
 
 // 获取根元素

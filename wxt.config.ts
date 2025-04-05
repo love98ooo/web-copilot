@@ -11,7 +11,7 @@ export default defineConfig({
     chromiumArgs: ['--user-data-dir=./.wxt/chrome-data'],
   },
   manifest: {
-    name: 'AI Web Copilot',
+    name: 'Web Copilot',
     description: 'Your AI assistant for web browsing',
     permissions: [
       'storage',
@@ -24,7 +24,7 @@ export default defineConfig({
       service_worker: 'background.ts'
     },
     action: {
-      default_title: "AI Web Copilot"
+      default_title: "Web Copilot"
     },
     side_panel: {
       default_path: "sidepanel.html"

@@ -14,9 +14,10 @@ export default defineBackground(() => {
     if (details.reason === 'install' || details.reason === 'update') {
       // 初始化侧边栏
       await initializeSidePanel();
+
       // 打开设置页面
       chrome.tabs.create({
-        url: 'newtab.html'
+        url: 'settings.html'
       });
     }
   });
