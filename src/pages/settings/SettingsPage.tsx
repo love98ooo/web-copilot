@@ -11,7 +11,19 @@ export const SettingsPage: React.FC = () => {
 
   const renderSidebar = () => (
     <div className="w-[300px] border-r border-gray-200 p-6 space-y-2 bg-white sticky top-0 h-screen">
-      <h2 className="text-lg font-semibold mb-4">Web Copilot</h2>
+      <div className="flex items-center gap-4 mb-8 pl-1">
+        <img
+          src="/icon.svg"
+          alt="Web Copilot Logo"
+          className="w-14 h-14 drop-shadow-sm transition-transform hover:scale-105 duration-200"
+        />
+        <div>
+          <h2 className="text-xl font-bold bg-gradient-to-r from-sky-500 to-indigo-500 bg-clip-text text-transparent">
+            Web Copilot
+          </h2>
+          <p className="text-xs text-gray-500">AI 浏览器助手</p>
+        </div>
+      </div>
       <div className="space-y-2">
         <button
           onClick={() => setActiveTab("general")}
