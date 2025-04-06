@@ -32,6 +32,18 @@ export interface ChatHistories {
   [key: string]: ChatMessage[];  // key 是 provider 的唯一标识
 }
 
+// 定义提示词类型
+export interface Prompt {
+  id: string;
+  name: string;
+  content: string;
+  description?: string;
+  tags: string[];
+  temperature: number;
+  createdAt: number;
+  updatedAt: number;
+}
+
 // 从环境变量获取默认配置
 const getDefaultProviders = (): [string[], Record<string, ProviderConfig>] => {
   console.debug(import.meta.env);
@@ -94,6 +106,40 @@ const DEFAULT_CONFIG: AIConfigStorage = {
   }
 };
 
+// 默认提示词库
+const DEFAULT_PROMPTS: Record<string, Prompt> = {
+  'default-prompt-1': {
+    id: 'default-prompt-1',
+    name: '翻译助手',
+    content: '你是一位专业的翻译专家，精通中英文互译。请将用户输入的文本翻译成目标语言，保持原意的同时追求表达的自然流畅。注意保留专业术语，确保翻译准确无误。',
+    description: '用于中英文互译的提示词',
+    tags: ['翻译', '语言'],
+    temperature: 0.3,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  },
+  'default-prompt-2': {
+    id: 'default-prompt-2',
+    name: '代码助手',
+    content: '你是一位资深软件工程师，擅长编写高质量、易读、高效的代码。帮助用户解决编程问题，优化代码结构，并提供详细的解释。使用最佳实践和设计模式，考虑代码的可维护性和扩展性。',
+    description: '用于编程和代码相关问题',
+    tags: ['编程', '代码'],
+    temperature: 0.7,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  },
+  'default-prompt-3': {
+    id: 'default-prompt-3',
+    name: '内容总结',
+    content: '你是一位精通信息提炼与归纳的专家。请对用户提供的文本进行简洁有效的总结，保留核心信息和关键观点，同时去除冗余内容。总结应当：\n1. 抓住文本的主要论点和结论\n2. 保持逻辑清晰，层次分明\n3. 使用简洁的语言表达\n4. 根据内容长度自动调整总结长度，确保覆盖所有要点\n\n如果文本包含多个主题，请分别总结各个主题的要点。',
+    description: '用于总结长文本、会议内容或文章的要点',
+    tags: ['总结', '精简'],
+    temperature: 0.5,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  }
+};
+
 // 创建配置存储项
 export const aiConfig = storage.defineItem<AIConfigStorage>('local:ai_config', {
   fallback: DEFAULT_CONFIG,
@@ -109,6 +155,12 @@ export const providers = storage.defineItem<Record<string, ProviderConfig>>('loc
 // 创建历史记录存储项
 export const chatHistories = storage.defineItem<ChatHistories>('local:chat_histories', {
   fallback: {},
+  version: 1
+});
+
+// 创建提示词库存储项
+export const promptsLib = storage.defineItem<Record<string, Prompt>>('local:prompts_lib', {
+  fallback: DEFAULT_PROMPTS,
   version: 1
 });
 
@@ -271,4 +323,60 @@ export async function clearChatHistory(providerId: string): Promise<void> {
   const histories = await chatHistories.getValue();
   delete histories[providerId];
   await chatHistories.setValue(histories);
+}
+
+// 获取所有提示词
+export async function getAllPrompts(): Promise<Prompt[]> {
+  const storedPrompts = await promptsLib.getValue();
+  return Object.values(storedPrompts).sort((a, b) => b.updatedAt - a.updatedAt);
+}
+
+// 获取提示词详情
+export async function getPrompt(id: string): Promise<Prompt | null> {
+  const storedPrompts = await promptsLib.getValue();
+  return storedPrompts[id] || null;
+}
+
+// 添加新提示词
+export async function addPrompt(prompt: Omit<Prompt, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  const id = `prompt-${Date.now()}`;
+  const timestamp = Date.now();
+
+  const newPrompt: Prompt = {
+    ...prompt,
+    id,
+    createdAt: timestamp,
+    updatedAt: timestamp
+  };
+
+  const storedPrompts = await promptsLib.getValue();
+  storedPrompts[id] = newPrompt;
+  await promptsLib.setValue(storedPrompts);
+
+  return id;
+}
+
+// 更新提示词
+export async function updatePrompt(id: string, data: Partial<Omit<Prompt, 'id' | 'createdAt'>>): Promise<void> {
+  const storedPrompts = await promptsLib.getValue();
+
+  if (storedPrompts[id]) {
+    storedPrompts[id] = {
+      ...storedPrompts[id],
+      ...data,
+      updatedAt: Date.now()
+    };
+
+    await promptsLib.setValue(storedPrompts);
+  }
+}
+
+// 删除提示词
+export async function removePrompt(id: string): Promise<void> {
+  const storedPrompts = await promptsLib.getValue();
+
+  if (storedPrompts[id]) {
+    delete storedPrompts[id];
+    await promptsLib.setValue(storedPrompts);
+  }
 }

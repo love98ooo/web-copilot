@@ -390,7 +390,7 @@ export const GeneralSettings: React.FC = () => {
 
           <div className="space-y-6">
             {providers.map((provider, index) => (
-              <Card key={provider.id} className="border rounded-lg gap-3">
+              <Card key={provider.id} className="border rounded-lg">
                 <CardHeader>
                   <div className="flex justify-between items-center">
                     <div className="flex items-center group relative">

@@ -3,6 +3,7 @@ import { Settings, MessageSquare } from "lucide-react";
 import { Toaster } from "@/components/ui/toaster";
 import { cn } from "@/lib/utils";
 import { GeneralSettings } from "./GeneralSettings";
+import { PromptsSettings } from "./PromptsSettings";
 
 type TabId = "general" | "prompts";
 
@@ -53,24 +54,13 @@ export const SettingsPage: React.FC = () => {
     </div>
   );
 
-  const renderPromptsTab = () => (
-    <div>
-      <div className="max-w-2xl">
-        <h1 className="text-2xl font-bold mb-6">提示词管理</h1>
-        <div className="text-gray-500 text-center py-8">
-          提示词管理功能开发中...
-        </div>
-      </div>
-    </div>
-  );
-
   return (
     <div>
       <div className="flex">
         {renderSidebar()}
         <div className="px-6 w-[768px] min-h-max pt-[28px] pb-[106px] me-auto">
           {activeTab === "general" && <GeneralSettings />}
-          {activeTab === "prompts" && renderPromptsTab()}
+          {activeTab === "prompts" && <PromptsSettings />}
         </div>
       </div>
       <Toaster />
