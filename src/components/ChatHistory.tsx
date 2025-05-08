@@ -4,6 +4,7 @@ import { chatHistoryService } from '../utils/history';
 import { formatDistanceToNow } from 'date-fns';
 import { zhCN } from 'date-fns/locale';
 import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
 import { X } from 'lucide-react';
 
 interface ChatHistoryProps {
@@ -16,6 +17,7 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
   currentSessionId
 }) => {
   const [sessions, setSessions] = useState<SessionSummary[]>([]);
+  const [filter, setFilter] = useState('');
 
   useEffect(() => {
     const loadSessions = async () => {
@@ -34,16 +36,25 @@ const ChatHistory: React.FC<ChatHistoryProps> = ({
 
   return (
     <div className="h-full px-4">
+      <Input
+        type="text"
+        placeholder="搜索历史会话..."
+        value={filter}
+        onChange={e => setFilter(e.target.value)}
+        className="w-full text-xs mb-3 px-3 py-2 border border-gray-200 rounded focus:outline-none focus:ring-2 focus:ring-blue-200 dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+      />
       {sessions.length === 0 ? (
         <div className="text-center text-gray-500 py-4">
           暂无历史记录
         </div>
       ) : (
         <div className="space-y-2 pb-4">
-          {sessions.map((session) => (
-            <div
-              key={session.id}
-              className={`group relative w-full text-left p-3 rounded-lg border transition-colors
+          {sessions
+            .filter(session => session.title.toLowerCase().includes(filter.toLowerCase()))
+            .map((session) => (
+              <div
+                key={session.id}
+                className={`group relative w-full text-left p-3 rounded-lg border transition-colors
                 ${session.id === currentSessionId
                   ? 'bg-blue-50 border-blue-200 dark:bg-blue-900/20 dark:border-blue-800'
                   : 'bg-white border-gray-200 hover:bg-gray-50 dark:bg-gray-800 dark:border-gray-700 dark:hover:bg-gray-700'

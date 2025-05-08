@@ -1,5 +1,4 @@
 import { Message } from './ai';
-import { storage } from 'wxt/storage';
 
 // 存储键前缀
 const STORAGE_PREFIX = {
