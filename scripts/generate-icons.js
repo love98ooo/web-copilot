@@ -12,7 +12,7 @@ const svgPath = path.join(__dirname, '../src/public/icon.svg');
 const outputDir = path.join(__dirname, '../src/public');
 
 // 定义需要生成的图标尺寸
-const sizes = [16, 32, 48, 128];
+const sizes = [128];
 
 async function generateIcons() {
   try {

@@ -1,35 +1,26 @@
 <svg viewBox="0 0 512 512" xmlns="http://www.w3.org/2000/svg">
-  <!-- 基础圆形背景 -->
-  <circle id="path_1" cx="256" cy="256" r="200" fill="#66CCFF"/>
-  
-  <!-- 内部白色圆环 -->
-  <circle id="path_2" cx="256" cy="256" r="150" fill="#FFFFFF"/>
-  <circle id="path_3" cx="256" cy="256" r="100" fill="#66CCFF"/>
-  
-  <!-- 放射线 - 从中心向外延伸 -->
-  <line id="path_4" x1="256" y1="256" x2="456" y2="256" stroke="#FFFFFF" stroke-width="6"/>
-  <line id="path_5" x1="256" y1="256" x2="56" y2="256" stroke="#FFFFFF" stroke-width="6"/>
-  <line id="path_6" x1="256" y1="256" x2="256" y2="56" stroke="#FFFFFF" stroke-width="6"/>
-  <line id="path_7" x1="256" y1="256" x2="256" y2="456" stroke="#FFFFFF" stroke-width="6"/>
-  <line id="path_8" x1="256" y1="256" x2="380" y2="132" stroke="#FFFFFF" stroke-width="6"/>
-  <line id="path_9" x1="256" y1="256" x2="132" y2="380" stroke="#FFFFFF" stroke-width="6"/>
-  
-  <!-- 连接点 - 数据节点 -->
-  <circle id="path_10" cx="380" cy="132" r="15" fill="#66CCFF"/>
-  <circle id="path_11" cx="456" cy="256" r="15" fill="#66CCFF"/>
-  <circle id="path_12" cx="380" cy="380" r="15" fill="#66CCFF"/>
-  <circle id="path_13" cx="256" cy="456" r="15" fill="#66CCFF"/>
-  <circle id="path_14" cx="132" cy="380" r="15" fill="#66CCFF"/>
-  <circle id="path_15" cx="56" cy="256" r="15" fill="#66CCFF"/>
-  <circle id="path_16" cx="132" cy="132" r="15" fill="#66CCFF"/>
-  <circle id="path_17" cx="256" cy="56" r="15" fill="#66CCFF"/>
-  
-  <!-- 波浪线 - 代表AI处理 -->
-  <path id="path_18" d="M 106 256 Q 181 156 256 256 Q 331 356 406 256" fill="none" stroke="#FFFFFF" stroke-width="12" stroke-linecap="round"/>
-  
-  <!-- 电路连接线 -->
-  <polyline id="path_19" points="380,132 456,256 380,380" fill="none" stroke="#FFFFFF" stroke-width="3"/>
-  <polyline id="path_20" points="380,380 256,456 132,380" fill="none" stroke="#FFFFFF" stroke-width="3"/>
-  <polyline id="path_21" points="132,380 56,256 132,132" fill="none" stroke="#FFFFFF" stroke-width="3"/>
-  <polyline id="path_22" points="132,132 256,56 380,132" fill="none" stroke="#FFFFFF" stroke-width="3"/>
-</svg> 
+  <circle id="path_1" cx="256" cy="256" r="256" fill="#66CCFF"/>
+
+  <circle id="path_2" cx="256" cy="256" r="192" fill="#FFFFFF"/>
+  <circle id="path_3" cx="256" cy="256" r="128" fill="#66CCFF"/>
+
+  <line id="path_4" x1="256" y1="256" x2="512" y2="256" stroke="#FFFFFF" stroke-width="8"/>
+  <line id="path_5" x1="256" y1="256" x2="0" y2="256" stroke="#FFFFFF" stroke-width="8"/>
+  <line id="path_6" x1="256" y1="256" x2="256" y2="0" stroke="#FFFFFF" stroke-width="8"/>
+  <line id="path_7" x1="256" y1="256" x2="256" y2="512" stroke="#FFFFFF" stroke-width="8"/>
+  <line id="path_8" x1="256" y1="256" x2="421" y2="91" stroke="#FFFFFF" stroke-width="8"/>
+  <line id="path_9" x1="256" y1="256" x2="91" y2="421" stroke="#FFFFFF" stroke-width="8"/>
+
+  <circle id="path_10" cx="421" cy="421" r="13" fill="#FFFFFF"/>
+  <circle id="path_11" cx="421" cy="91" r="13" fill="#FFFFFF"/>
+  <circle id="path_12" cx="91" cy="421" r="13" fill="#FFFFFF"/>
+  <circle id="path_13" cx="91" cy="91" r="13" fill="#FFFFFF"/>
+
+  <path id="path_14" d="M 0 256 Q 128 100 256 256 Q 384 412 512 256" fill="none" stroke="#FFFFFF" stroke-width="15" stroke-linecap="round"/>
+
+
+  <polyline id="path_15" points="421,91 512,256 421,421" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+  <polyline id="path_16" points="421,421 256,512 91,421" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+  <polyline id="path_17" points="91,421 0,256 91,91" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+  <polyline id="path_18" points="91,91 256,0 421,91" fill="none" stroke="#FFFFFF" stroke-width="4"/>
+</svg>
