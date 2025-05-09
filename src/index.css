@@ -131,6 +131,10 @@
   @apply text-sm;
 }
 
+.markdown-content p:has(strong) {
+  @apply mt-3;
+}
+
 .markdown-content h1,
 .markdown-content h2,
 .markdown-content h3,
@@ -169,11 +173,11 @@
 }
 
 .markdown-content pre {
-  @apply bg-gray-100 dark:bg-gray-800 rounded p-3 my-3 overflow-x-auto text-sm;
+  @apply bg-gray-100 dark:bg-gray-800 rounded p-3 my-3 overflow-x-auto text-xs;
 }
 
 .markdown-content code {
-  @apply bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-sm font-mono;
+  @apply bg-gray-100 dark:bg-gray-800 px-1 py-0.5 rounded text-xs font-mono border border-gray-200;
 }
 
 .markdown-content pre code {

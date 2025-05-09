@@ -1,4 +1,4 @@
-import React, { useState, KeyboardEvent, ChangeEvent, useEffect, useCallback } from 'react';
+import React, { useState, KeyboardEvent, ChangeEvent, useEffect, useCallback, useRef } from 'react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue, SelectGroup, SelectLabel } from '@/components/ui/select';
 import { Textarea } from '@/components/ui/textarea';
 import { Button } from '@/components/ui/button';
@@ -14,7 +14,6 @@ import {
   DrawerDescription,
   DrawerHeader,
   DrawerTitle,
-  DrawerTrigger,
 } from '@/components/ui/drawer';
 import ChatHistory from '../../components/ChatHistory';
 import MessageList from '../../components/MessageList';
@@ -63,6 +62,7 @@ const AIChatSidebar: React.FC = () => {
     frequencyPenalty: 0,
     maxTokens: 2000
   });
+  const isComposing = useRef(false);
 
   // 使用 useCallback 包装加载消息的函数
   const loadMessages = useCallback(() => {
@@ -71,7 +71,7 @@ const AIChatSidebar: React.FC = () => {
       console.debug('加载消息:', currentSession.messages.length);
       setMessages(currentSession.messages);
     }
-  }, []); // 移除 getCurrentSession 依赖
+  }, []);
 
   useEffect(() => {
     const init = async () => {
@@ -89,7 +89,7 @@ const AIChatSidebar: React.FC = () => {
     });
 
     return () => unwatch();
-  }, []); // 移除 loadMessages 依赖
+  }, []);
 
   const loadConfig = async () => {
     try {
@@ -108,7 +108,7 @@ const AIChatSidebar: React.FC = () => {
   };
 
   const handleKeyPress = (e: KeyboardEvent<HTMLTextAreaElement>): void => {
-    if (e.key === 'Enter' && !e.shiftKey && inputValue.trim() && !isLoading) {
+    if (e.key === 'Enter' && !e.shiftKey && inputValue.trim() && !isLoading && !isComposing.current) {
       e.preventDefault(); // 防止换行
       handleSendMessage();
     }
@@ -293,7 +293,7 @@ const AIChatSidebar: React.FC = () => {
                 variant="ghost"
                 size="icon"
                 asChild
-                className="h-8 w-8 shrink-0 hover:bg-gray-100 rounded-full group"
+                className="h-7 w-7 shrink-0 hover:bg-gray-100/80 backdrop-blur-sm rounded-full group"
               >
                 <a
                   href="settings.html"
@@ -587,6 +587,8 @@ const AIChatSidebar: React.FC = () => {
               value={inputValue}
               onChange={handleInputChange}
               onKeyDown={handleKeyPress}
+              onCompositionStart={() => { isComposing.current = true; }}
+              onCompositionEnd={() => { isComposing.current = false; }}
               placeholder="按 Enter 发送，Shift + Enter 换行"
               disabled={isLoading}
               className="w-full min-h-[72px] max-h-28 resize-none border-0 bg-transparent p-0 text-sm focus-visible:ring-0 focus-visible:ring-offset-0 shadow-none"
