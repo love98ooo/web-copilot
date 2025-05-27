@@ -17,7 +17,7 @@ import {
 import { aiService } from "@/utils/ai";
 import type { AIError } from "@/utils/ai";
 import type { ProviderType } from "@/utils/storage";
-import { Plus, Trash2, RefreshCw, Check, Search } from "lucide-react";
+import { Plus, Trash2, RefreshCw, Check, Search, X } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -52,6 +52,7 @@ interface ProviderFormState {
   availableModels?: string[];
   modelFilter?: string;
   showEnabledOnly?: boolean;
+  newModelName?: string;
 }
 
 // SDK 类型选项
@@ -120,6 +121,7 @@ export const GeneralSettings: React.FC = () => {
         models: p.models,
         modelFilter: "",
         showEnabledOnly: false,
+        newModelName: "",
       }));
       setProviders(providersWithModels);
 
@@ -352,9 +354,18 @@ export const GeneralSettings: React.FC = () => {
   };
 
   const getFilteredModels = (provider: ProviderFormState) => {
-    if (!provider.availableModels) return [];
+    // 获取可用模型列表
+    const availableModels = provider.availableModels || [];
 
-    let filteredModels = provider.availableModels;
+    // 获取已启用但不在可用列表中的模型（可能是已删除的模型）
+    const enabledButNotAvailable = provider.models.filter(
+      model => !availableModels.includes(model)
+    );
+
+    // 合并所有模型，已删除的模型排在前面
+    const allModels = [...enabledButNotAvailable, ...availableModels];
+
+    let filteredModels = allModels;
 
     // 先按搜索词过滤
     if (provider.modelFilter) {
@@ -371,6 +382,99 @@ export const GeneralSettings: React.FC = () => {
     }
 
     return filteredModels;
+  };
+
+  const handleAddCustomModel = async (index: number) => {
+    const provider = providers[index];
+    const modelName = provider.newModelName?.trim();
+
+    if (!modelName) {
+      toast({
+        variant: "destructive",
+        title: "错误",
+        description: "请输入模型名称",
+        duration: 3000,
+      });
+      return;
+    }
+
+    if (provider.models.includes(modelName)) {
+      toast({
+        variant: "destructive",
+        title: "错误",
+        description: "该模型已存在",
+        duration: 3000,
+      });
+      return;
+    }
+
+    try {
+      // 添加模型到已启用列表
+      const newModels = [...provider.models, modelName];
+
+      // 更新本地状态
+      const newProviders = [...providers];
+      const updatedProvider = {
+        ...provider,
+        models: newModels,
+        newModelName: "" // 清空输入框
+      };
+      newProviders[index] = updatedProvider;
+      setProviders(newProviders);
+
+      // 触发自动保存
+      handleAutoSave(updatedProvider);
+
+      toast({
+        variant: "success",
+        title: "成功",
+        description: `已添加模型: ${modelName}`,
+        duration: 2000,
+      });
+    } catch (error) {
+      console.error("添加自定义模型失败:", error);
+      toast({
+        variant: "destructive",
+        title: "错误",
+        description: "添加模型失败",
+        duration: 3000,
+      });
+    }
+  };
+
+  const handleRemoveCustomModel = async (index: number, model: string) => {
+    try {
+      const provider = providers[index];
+
+      // 从已启用列表中移除模型
+      const newModels = provider.models.filter(m => m !== model);
+
+      // 更新本地状态
+      const newProviders = [...providers];
+      const updatedProvider = { ...provider, models: newModels };
+      newProviders[index] = updatedProvider;
+      setProviders(newProviders);
+
+      // 触发自动保存
+      handleAutoSave(updatedProvider);
+    } catch (error) {
+      console.error("删除模型失败:", error);
+      toast({
+        variant: "destructive",
+        title: "错误",
+        description: "删除模型失败",
+        duration: 3000,
+      });
+    }
+  };
+
+  const handleNewModelNameChange = (index: number, value: string) => {
+    const newProviders = [...providers];
+    newProviders[index] = {
+      ...newProviders[index],
+      newModelName: value,
+    };
+    setProviders(newProviders);
   };
 
   return (
@@ -553,6 +657,32 @@ export const GeneralSettings: React.FC = () => {
                                   />
                                   <Search className="h-4 w-4 absolute left-2.5 top-3 text-gray-500" />
                                 </div>
+
+                                {/* 手动添加模型 */}
+                                <div className="flex gap-2">
+                                  <Input
+                                    value={provider.newModelName || ""}
+                                    onChange={(e) =>
+                                      handleNewModelNameChange(index, e.target.value)
+                                    }
+                                    placeholder="输入自定义模型名称..."
+                                    className="flex-1"
+                                    onKeyDown={(e) => {
+                                      if (e.key === 'Enter') {
+                                        handleAddCustomModel(index);
+                                      }
+                                    }}
+                                  />
+                                  <Button
+                                    onClick={() => handleAddCustomModel(index)}
+                                    variant="outline"
+                                    size="sm"
+                                    className="px-3"
+                                  >
+                                    <Plus className="h-4 w-4" />
+                                  </Button>
+                                </div>
+
                                 <div className="flex items-center">
                                   <input
                                     type="checkbox"
@@ -604,34 +734,62 @@ export const GeneralSettings: React.FC = () => {
                                             </Button>
                                           </TableHead>
                                           <TableHead>模型名称</TableHead>
+                                          <TableHead className="w-[50px]"></TableHead>
                                         </TableRow>
                                       </TableHeader>
                                       <TableBody>
-                                        {getFilteredModels(provider).map((model) => (
-                                          <TableRow key={model}>
-                                            <TableCell>
-                                              <Button
-                                                variant="ghost"
-                                                size="sm"
-                                                className={`h-6 w-6 p-0 ${
-                                                  provider.models.includes(model)
-                                                    ? "text-green-600"
-                                                    : "text-gray-300"
-                                                }`}
-                                                onClick={() =>
-                                                  handleToggleModel(index, model)
-                                                }
-                                              >
-                                                <Check className="h-4 w-4" />
-                                              </Button>
-                                            </TableCell>
-                                            <TableCell>{model}</TableCell>
-                                          </TableRow>
-                                        ))}
+                                        {getFilteredModels(provider).map((model) => {
+                                          const isDeleted = !provider.availableModels?.includes(model);
+                                          return (
+                                            <TableRow key={model}>
+                                              <TableCell>
+                                                <Button
+                                                  variant="ghost"
+                                                  size="sm"
+                                                  className={`h-6 w-6 p-0 ${
+                                                    provider.models.includes(model)
+                                                      ? "text-green-600"
+                                                      : "text-gray-300"
+                                                  }`}
+                                                  onClick={() =>
+                                                    handleToggleModel(index, model)
+                                                  }
+                                                >
+                                                  <Check className="h-4 w-4" />
+                                                </Button>
+                                              </TableCell>
+                                              <TableCell>
+                                                <div className="flex items-center gap-2">
+                                                  <span className={isDeleted ? "text-red-600" : ""}>
+                                                    {model}
+                                                  </span>
+                                                  {isDeleted && (
+                                                    <span className="text-xs text-red-500 bg-red-50 px-2 py-0.5 rounded">
+                                                      已删除
+                                                    </span>
+                                                  )}
+                                                </div>
+                                              </TableCell>
+                                              <TableCell>
+                                                {isDeleted && (
+                                                  <Button
+                                                    variant="ghost"
+                                                    size="sm"
+                                                    className="h-6 w-6 p-0 text-red-500 hover:text-red-600"
+                                                    onClick={() => handleRemoveCustomModel(index, model)}
+                                                    title="删除此模型"
+                                                  >
+                                                    <X className="h-4 w-4" />
+                                                  </Button>
+                                                )}
+                                              </TableCell>
+                                            </TableRow>
+                                          );
+                                        })}
                                         {getFilteredModels(provider).length === 0 && (
                                           <TableRow>
                                             <TableCell
-                                              colSpan={2}
+                                              colSpan={3}
                                               className="text-center text-gray-500 py-4"
                                             >
                                               没有找到匹配的模型

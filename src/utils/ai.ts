@@ -105,13 +105,14 @@ export class AIService {
       } else if (provider.type === "gemini") {
         // Gemini 的可用模型列表
         return [
-          "gemini-2.5-pro-exp-03-25", // 最强大的思维模型，最高的响应准确度
-          "gemini-2.0-flash", // 新一代多模态模型，支持代码和图像生成
-          "gemini-2.0-flash-lite", // 优化成本和延迟的 2.0 Flash 模型
-          "gemini-1.5-flash", // 快速且通用的性能
-          "gemini-1.5-flash-8b", // 适用于高容量和低智能任务
-          "gemini-1.5-pro", // 适用于需要更多智能的复杂推理任务
-          "gemini-embedding-exp", // 用于测量文本字符串相关性
+          "gemini-2.5-flash-preview-05-20",
+          "gemini-2.5-pro-preview-05-06",
+          "gemini-2.0-flash",
+          "gemini-2.0-flash-lite",
+          "gemini-1.5-flash",
+          "gemini-1.5-flash-8b",
+          "gemini-1.5-pro",
+          "gemini-embedding-exp",
         ];
       }
       return [];
